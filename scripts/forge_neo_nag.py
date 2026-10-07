@@ -27,9 +27,10 @@ class Script(scripts.Script):
         return controls
 
     def before_process(self, p, enabled=False, negative="", phi=4.0, tau=2.5,
-                       alpha=0.25, sigma_start=1000.0, sigma_end=0.0):
+                       alpha=0.25, sigma_start=1000.0, sigma_end=0.0, adapter="auto"):
         from forge_neo_nag.host import arm_request
-        arm_request(p, (enabled, negative, phi, tau, alpha, sigma_start, sigma_end))
+        arm_request(p, (enabled, negative, phi, tau, alpha, sigma_start, sigma_end, adapter),
+                    preset=getattr(shared.opts, "forge_preset", None))
 
     def postprocess(self, p, processed, *args):
         from forge_neo_nag.host import disarm_request

@@ -67,7 +67,7 @@ def test_full_lifecycle_cache_and_restore(batch):
     assert p.sample==original_sample
 
 
-@pytest.mark.parametrize("field,value", [("cfg_scale",2),("cfg_scale",float('nan')),("cfg_scale",True),
+@pytest.mark.parametrize("field,value", [("cfg_scale",float('nan')),("cfg_scale",True),
                                          ("enable_hr",True),("is_hr_pass",True),("txt2img_upscale",True),
                                          ("refiner_checkpoint","other"),("sampler_name","Euler CFG++"),("tiling",True)])
 def test_invalid_request_cannot_save(field,value):

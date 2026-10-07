@@ -24,7 +24,7 @@ def test_real_gradio_ui_schema_and_infotext(locale):
     import gradio as gr
     with gr.Blocks() as demo:
         controls, fields=build_ui(gr,locale)
-    assert len(controls)==7 and len(fields)==7
+    assert len(controls)==8 and len(fields)==8
     assert tuple(component.value for component in controls)==DEFAULTS
     config=demo.get_config_file()
     ids=[component["props"].get("elem_id") for component in config["components"]]
@@ -43,7 +43,7 @@ def test_tooltip_metadata_is_html_safe_and_complete():
     assert '<script' not in data
     match=re.search(r'data-forge-nag-help="([^"]*)"',data)
     decoded=json.loads(html.unescape(match.group(1)))
-    assert len(decoded["fields"])==7
+    assert len(decoded["fields"])==8
     for field in FIELDS:
         assert decoded["fields"][f"forge_neo_nag_{field}"]=={k:STRINGS[field][k][1] for k in ("ja","en")}
 

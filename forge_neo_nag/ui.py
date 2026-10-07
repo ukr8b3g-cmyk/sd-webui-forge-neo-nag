@@ -6,22 +6,26 @@ import json
 import re
 
 PREFIX = "forge_neo_nag"
-FIELDS = ("enabled", "negative", "phi", "tau", "alpha", "sigma_start", "sigma_end")
-DEFAULTS = (False, "", 4.0, 2.5, 0.25, 1000.0, 0.0)
-META_KEYS = ("Forge NAG", "Forge NAG Negative", "Forge NAG Phi", "Forge NAG Tau", "Forge NAG Alpha", "Forge NAG Sigma Start", "Forge NAG Sigma End")
+FIELDS = ("enabled", "negative", "phi", "tau", "alpha", "sigma_start", "sigma_end", "adapter")
+DEFAULTS = (False, "", 4.0, 2.5, 0.25, 1000.0, 0.0, "auto")
+META_KEYS = ("Forge NAG", "Forge NAG Negative", "Forge NAG Phi", "Forge NAG Tau", "Forge NAG Alpha", "Forge NAG Sigma Start", "Forge NAG Sigma End", "Forge NAG Adapter Selection")
 
 STRINGS = {
+    "adapter": {
+        "en": ("Adapter", "Auto uses the loaded model. Select Krea2, Anima or SDXL manually to override Auto. UI Preset never locks this selection. A structurally incompatible model reports an error; no silent fallback or model switch."),
+        "ja": ("アダプター", "Autoは読み込まれたモデルから判定します。Krea2・Anima・SDXLを手動選択して変更できます。UI Presetでは固定しません。構造が合わない場合は理由を表示し、黙って切り替えたりモデルを変更したりしません。"),
+    },
     "enabled": {
-        "en": ("Enable NAG", "V1: Krea2 txt2img at CFG=1 only. OFF, an empty NAG prompt, Phi=0 or Alpha=0 uses the normal path. No automatic CFG changes."),
-        "ja": ("NAGを有効化", "V1はKrea2のtxt2img・CFG=1専用です。OFF・NAG欄が空・Phi=0・Alpha=0では通常経路を使います。CFGは自動変更しません。"),
+        "en": ("Enable NAG", "Krea2, Anima and SDXL txt2img. NAG ON/OFF and CFG are your choice. Normal CFG and its negative branch are preserved; no preset or generation setting is changed. OFF, empty text, Phi=0 or Alpha=0 uses the normal path."),
+        "ja": ("NAGを有効化", "Krea2・Anima・SDXLのtxt2imgに対応します。CFGが1以外でもON/OFFを選べます。標準CFGとNegativeの経路を維持し、Presetや生成設定は変更しません。OFF・空欄・Phi=0・Alpha=0では通常経路です。"),
     },
     "negative": {
-        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. This is separate from the greyed-out standard negative box. Plain text only; no weights, schedules or LoRA tags. Maximum 2048 tokens including the template."),
-        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。グレーアウトする標準Negative欄とは別です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。テンプレート込みで最大2048トークンです。"),
+        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. Separate from the standard negative box, which remains controlled by Forge. Plain text only; no weights, schedules or LoRA tags. SDXL: up to four CLIP chunks (308 positions). Anima: both tokenizers up to 2048. Krea2: 2048 including its template."),
+        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。標準Negative欄とは独立です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。SDXLは最大4チャンク（308位置）、Animaは両Tokenizerとも2048、Krea2はテンプレート込み2048トークンです。"),
     },
     "phi": {
-        "en": ("NAG Scale / Phi", "Attention extrapolation strength. Start at 4.0. A higher value can suppress more strongly but can change composition or degrade quality. Zero bypasses NAG."),
-        "ja": ("NAG強度 / Phi", "Attentionの差を強める係数です。まず4.0から試します。上げすぎると構図や画質が変化する場合があります。0でNAGをバイパスします。"),
+        "en": ("NAG Scale / Phi", "Attention extrapolation strength. Existing default: 4.0. The SDXL test button sets 2.0, not a validated quality recommendation. A higher value can suppress more strongly but can change composition or degrade quality. Zero bypasses NAG."),
+        "ja": ("NAG強度 / Phi", "Attentionの差を強める係数です。既存初期値4.0。SDXL試験設定ボタンでは2.0になりますが、画質の推奨値ではありません。上げすぎると構図や画質が変化する場合があります。0でNAGをバイパスします。"),
     },
     "tau": {
         "en": ("Norm Cap / Tau", "Caps the extrapolated attention's L1 norm relative to the positive attention before blending. Default 2.5; this is not a CFG scale."),
@@ -59,19 +63,36 @@ def _paste_value(index: int, params):
     if index == 0:
         # Loading a non-NAG image must not leave a previously enabled NAG on.
         return value is True or str(value).lower() == "true"
+    if index == 7:
+        from .registry import normalize_choice
+        from .config import NAGError
+        try:
+            return normalize_choice(value)
+        except NAGError:
+            return "auto"
     return value
+
+
+def sdxl_test_values():
+    # Does not alter Enabled, Adapter, Negative, CFG or any Forge preset.
+    return 2.0, 2.5, 0.25, 1000.0, 0.0
 
 
 def build_ui(gr, localization="None"):
     lang = language(localization)
     text = lambda field: STRINGS[field][lang]
-    with gr.Accordion("Forge Neo NAG — Krea2", open=False, elem_id=f"{PREFIX}_txt2img"):
+    with gr.Accordion("Forge Neo NAG", open=False, elem_id=f"{PREFIX}_txt2img"):
         gr.Markdown(
-            "**V1：Krea2 / txt2img / CFG=1**。標準Negative欄は変更しません。Reference・Edit・Hires fixは非対応です。"
+            "**Krea2 / Anima / SDXL（Illustrious）・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
             if lang == "ja" else
-            "**V1: Krea2 / txt2img / CFG=1**. The standard negative box is unchanged. Reference, Edit and Hires fix are not supported."
+            "**Krea2 / Anima / SDXL (Illustrious) — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
         )
         enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
+        adapter = gr.Dropdown(
+            choices=[("Auto", "auto"), ("Krea2", "krea2"), ("Anima", "anima"), ("SDXL / Illustrious", "sdxl")],
+            value="auto", label=text("adapter")[0], info=text("adapter")[1],
+            elem_id=f"{PREFIX}_adapter", interactive=True,
+        )
         negative = gr.Textbox(value="", label=text("negative")[0], info=text("negative")[1],
                               placeholder="big wings", lines=3, elem_id=f"{PREFIX}_negative")
         with gr.Row():
@@ -86,8 +107,12 @@ def build_ui(gr, localization="None"):
                               label=text("sigma_start")[0], info=text("sigma_start")[1], elem_id=f"{PREFIX}_sigma_start")
             end = gr.Number(value=0.0, precision=None,
                             label=text("sigma_end")[0], info=text("sigma_end")[1], elem_id=f"{PREFIX}_sigma_end")
+        apply_sdxl = gr.Button("SDXL試験設定を適用" if lang == "ja" else "Apply SDXL test settings",
+                               elem_id=f"{PREFIX}_sdxl_test")
+        apply_sdxl.click(fn=sdxl_test_values, inputs=[], outputs=[phi, tau, alpha, start, end],
+                         queue=False, show_progress=False)
         gr.HTML(tooltip_metadata(lang))
-    controls = [enabled, negative, phi, tau, alpha, start, end]
+    controls = [enabled, negative, phi, tau, alpha, start, end, adapter]
     fields = [(control, functools_partial(index)) for index, control in enumerate(controls)]
     return controls, fields
 

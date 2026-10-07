@@ -1,0 +1,7 @@
+{
+  "status": "blocked",
+  "scope": "Isolated real-Gradio component browser attempt, not Forge UI",
+  "cases_completed": 0,
+  "error": "Page.goto: net::ERR_BLOCKED_BY_ADMINISTRATOR at http://127.0.0.1:7874/",
+  "schema_tests": "Passed separately in pytest; no browser interaction success is claimed"
+}

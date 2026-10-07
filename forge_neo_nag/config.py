@@ -40,10 +40,11 @@ class NAGConfig:
     alpha: float = 0.25
     sigma_start: float = 1000.0
     sigma_end: float = 0.0
+    adapter: str = "auto"
 
     @classmethod
     def parse(cls, enabled=False, negative="", phi=4.0, tau=2.5, alpha=0.25,
-              sigma_start=1000.0, sigma_end=0.0) -> "NAGConfig":
+              sigma_start=1000.0, sigma_end=0.0, adapter="auto") -> "NAGConfig":
         enabled = boolean(enabled)
         # OFF must not inspect a model or validate inactive stored controls.
         if not enabled:
@@ -52,12 +53,23 @@ class NAGConfig:
             raise NAGError("NAG Negative Prompt must be text. / NAG Negative Promptは文字列で指定してください。")
         if len(negative) > 32768:
             raise NAGError("NAG Negative Prompt exceeds 32768 characters; it was not truncated.")
+        from .registry import normalize_choice
+        # Inactive/bypassed controls must not force model detection.
+        selected = "auto"
         result = cls(enabled, negative.strip(), _number("Phi", phi, 0, 20),
                      _number("Tau", tau, 0.01, 20), _number("Alpha", alpha, 0, 1),
                      _number("Sigma Start", sigma_start, 0, 1000),
-                     _number("Sigma End", sigma_end, 0, 1000))
+                     _number("Sigma End", sigma_end, 0, 1000), selected)
         if result.sigma_start < result.sigma_end:
             raise NAGError("Sigma Start must be >= Sigma End. / 開始Sigmaは終了Sigma以上にしてください。")
+        from dataclasses import replace
+        try:
+            selected = normalize_choice(adapter)
+        except NAGError:
+            if result.active:
+                raise
+            selected = "auto"
+        result = replace(result, adapter=selected)
         if result.active:
             validate_negative_text(result.negative)
         return result
@@ -78,12 +90,12 @@ class NAGConfig:
             return "alpha=0"
         return ""
 
-    def metadata(self) -> dict[str, Any]:
+    def metadata(self, model=None) -> dict[str, Any]:
         from . import __version__
-        return {
+        data = {
             "Forge NAG": self.enabled,
             "Forge NAG Version": __version__,
-            "Forge NAG Model": "Krea2",
+            "Forge NAG Adapter Selection": self.adapter,
             "Forge NAG Negative": self.negative,
             "Forge NAG Phi": self.phi,
             "Forge NAG Tau": self.tau,
@@ -91,6 +103,9 @@ class NAGConfig:
             "Forge NAG Sigma Start": self.sigma_start,
             "Forge NAG Sigma End": self.sigma_end,
         }
+        if model is not None:
+            data["Forge NAG Model"] = model
+        return data
 
 
 def validate_negative_text(text: str) -> None:
