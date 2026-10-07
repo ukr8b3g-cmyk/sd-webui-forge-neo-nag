@@ -77,7 +77,7 @@ def build_ui(gr, localization="None"):
         with gr.Row():
             phi = gr.Slider(minimum=0, maximum=20, step=0.1, value=4.0,
                             label=text("phi")[0], info=text("phi")[1], elem_id=f"{PREFIX}_phi")
-            tau = gr.Slider(minimum=0.01, maximum=20, step=0.05, value=2.5,
+            tau = gr.Slider(minimum=0.01, maximum=20, step=0.01, value=2.5,
                             label=text("tau")[0], info=text("tau")[1], elem_id=f"{PREFIX}_tau")
             alpha = gr.Slider(minimum=0, maximum=1, step=0.01, value=0.25,
                               label=text("alpha")[0], info=text("alpha")[1], elem_id=f"{PREFIX}_alpha")
