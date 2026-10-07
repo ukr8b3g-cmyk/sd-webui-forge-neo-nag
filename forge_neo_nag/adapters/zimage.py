@@ -257,7 +257,7 @@ class ZImageAdapter:
         adaln_input = self.model.t_embedder(t * self.model.time_scale, dtype=x.dtype)
         positive_cap = self.model.cap_embedder(context)
         positive, mask, img_size, cap_size, positive_freqs = self.model.patchify_and_embed(
-            x, positive_cap, None, t, num_tokens, transformer_options=options
+            x, positive_cap, None, adaln_input, num_tokens, transformer_options=options
         )
         if mask is not None or len(set(cap_size)) != 1:
             raise NAGError("Unexpected Z-Image native sequence layout.")

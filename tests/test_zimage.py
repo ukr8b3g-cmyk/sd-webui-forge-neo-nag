@@ -163,7 +163,7 @@ class TinyZImage(nn.Module):
             imgs.append(x[i,begin:end].view(h//p,w//p,p,p,self.out_channels).permute(4,0,2,1,3).flatten(3,4).flatten(1,2))
         return torch.stack(imgs) if return_tensor else imgs
 
-    def patchify_and_embed(self,x,cap_feats,cap_mask,t,num_tokens,transformer_options=None):
+    def patchify_and_embed(self,x,cap_feats,cap_mask,adaln_input,num_tokens,transformer_options=None):
         b,c,h,w=x.shape; p=2; dtype=x.dtype; options=transformer_options or {}
         if self.pad_tokens_multiple:
             extra=(-cap_feats.shape[1])%self.pad_tokens_multiple
@@ -185,15 +185,14 @@ class TinyZImage(nn.Module):
         freqs=self.rope_embedder(torch.cat((cap_ids,img_ids),1)).movedim(1,2).to(dtype)
         for layer in self.context_refiner:
             cap_feats=layer(cap_feats,cap_mask,freqs[:,:cap_ids.shape[1]],transformer_options=options)
-        t_emb=self.t_embedder(t*self.time_scale,dtype=dtype)
         for layer in self.noise_refiner:
-            image=layer(image,None,freqs[:,cap_ids.shape[1]:],t_emb,transformer_options=options)
+            image=layer(image,None,freqs[:,cap_ids.shape[1]:],adaln_input,transformer_options=options)
         return torch.cat((cap_feats,image),1),None,[(h,w)]*b,[cap_feats.shape[1]]*b,freqs
 
     def forward(self,x,timesteps,context,num_tokens=None,attention_mask=None,transformer_options=None,**kwargs):
         h,w=x.shape[-2:]; x=pad_to_patch_size(x,(2,2)); t=1-timesteps
         adaln=self.t_embedder(t*self.time_scale,dtype=x.dtype); cap=self.cap_embedder(context)
-        seq,mask,sizes,cap_size,freqs=self.patchify_and_embed(x,cap,attention_mask,t,num_tokens,transformer_options or {})
+        seq,mask,sizes,cap_size,freqs=self.patchify_and_embed(x,cap,attention_mask,adaln,num_tokens,transformer_options or {})
         for layer in self.layers:
             seq=layer(seq,mask,freqs,adaln,transformer_options=transformer_options or {})
         seq=self.final_layer(seq,adaln)
