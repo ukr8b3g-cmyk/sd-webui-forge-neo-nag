@@ -1,5 +1,8 @@
 # Forge Neo NAG
 
+<img width="900" height="440" alt="{9A932AEB-0587-439C-9733-EF51F05D8AAE}" src="https://github.com/user-attachments/assets/a20fc273-58cc-46d1-a7e4-279bcf7f5d5b" />
+
+
 **Normalized Attention Guidance for Forge Neo. Extensible model adapters; V1 supports Krea2 only.**
 
 [日本語](#日本語) · [English](#english) · [Download / ダウンロード](https://github.com/ukr8b3g-cmyk/sd-webui-forge-neo-nag/releases) · [Validation / 検証](docs/VALIDATION.md) · [Implementation](docs/IMPLEMENTATION.md)
