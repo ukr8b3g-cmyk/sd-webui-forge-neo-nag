@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - forge_neo_nag/__init__.py
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'ukr8b3g-cmyk/sd-webui-forge-neo-nag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check JavaScript syntax
+        run: node --check javascript/forge_neo_nag.js
+      - name: Build and verify the committed ZIP
+        id: package
+        run: python3 tools/build_release.py --output-dir "$RUNNER_TEMP/nag-release"
+      - name: Publish the release and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAG_TAG: ${{ steps.package.outputs.tag }}
+          NAG_ZIP: ${{ steps.package.outputs.zip }}
+          NAG_CHECKSUM: ${{ steps.package.outputs.sha256_file }}
+          NAG_NOTES: ${{ steps.package.outputs.notes }}
+        run: |
+          if gh release view "$NAG_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf 'Release %s already exists; preserving its tag and assets.\n' "$NAG_TAG"
+            exit 0
+          fi
+          gh release create "$NAG_TAG" "$NAG_ZIP" "$NAG_CHECKSUM" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Forge Neo NAG $NAG_TAG — Initial Krea2 support" \
+            --notes-file "$NAG_NOTES" \
+            --latest

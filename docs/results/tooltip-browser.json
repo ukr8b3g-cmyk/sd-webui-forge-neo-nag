@@ -1,0 +1,86 @@
+{
+  "scope": "Chromium in-memory DOM fixture with production tooltip JavaScript, not live Forge/Gradio",
+  "live_gradio_browser_check": "not completed: browser policy blocked loopback navigation; policy was not changed",
+  "checks": 16,
+  "passed": 16,
+  "results": [
+    {
+      "locale": "en",
+      "field": "enabled",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "negative",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "phi",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "tau",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "alpha",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "sigma_start",
+      "pass": true
+    },
+    {
+      "locale": "en",
+      "field": "sigma_end",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "enabled",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "negative",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "phi",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "tau",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "alpha",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "sigma_start",
+      "pass": true
+    },
+    {
+      "locale": "ja",
+      "field": "sigma_end",
+      "pass": true
+    },
+    {
+      "case": "standard negative value/disabled/title untouched",
+      "pass": true
+    },
+    {
+      "case": "refresh idempotence and no input mutation",
+      "pass": true
+    }
+  ]
+}

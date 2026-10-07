@@ -1,0 +1,174 @@
+{
+  "scope": "Actual Forge class/method definitions; reduced random CPU models; backend operator stubs; no pretrained weights or GPU",
+  "torch": "2.10.0+cpu",
+  "krea_source": {
+    "raw_git_blob": "eb5d997633fe0018e1ed5275865c4b7809f9372f",
+    "lf_git_blob": "eb5d997633fe0018e1ed5275865c4b7809f9372f",
+    "matches_reviewed_source": true
+  },
+  "kmodel_source": {
+    "raw_git_blob": "0f09636d1e9919ef54c1a47c6c034ab08a922cc4",
+    "lf_git_blob": "0f09636d1e9919ef54c1a47c6c034ab08a922cc4",
+    "matches_reviewed_source": true
+  },
+  "tests": 24,
+  "passed": 24,
+  "results": [
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.float32",
+      "batch": 1,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.float32",
+      "batch": 1,
+      "max_abs_error": 5.960464477539063e-08,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.float32",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.float32",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.float32",
+      "batch": 2,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.float32",
+      "batch": 2,
+      "max_abs_error": 5.960464477539063e-08,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.float32",
+      "batch": 2,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.float32",
+      "batch": 2,
+      "pass": true
+    },
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.float16",
+      "batch": 1,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.float16",
+      "batch": 1,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.float16",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.float16",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.float16",
+      "batch": 2,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.float16",
+      "batch": 2,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.float16",
+      "batch": 2,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.float16",
+      "batch": 2,
+      "pass": true
+    },
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.bfloat16",
+      "batch": 1,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.bfloat16",
+      "batch": 1,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.bfloat16",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.bfloat16",
+      "batch": 1,
+      "pass": true
+    },
+    {
+      "case": "native_forward_zero_alpha",
+      "dtype": "torch.bfloat16",
+      "batch": 2,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_block_full_vs_shared_qkv",
+      "dtype": "torch.bfloat16",
+      "batch": 2,
+      "max_abs_error": 0.0,
+      "pass": true
+    },
+    {
+      "case": "native_text_fusion_cache_and_nonzero_nag",
+      "dtype": "torch.bfloat16",
+      "batch": 2,
+      "pass": true
+    },
+    {
+      "case": "native_KModel_predictor_preserved",
+      "dtype": "torch.bfloat16",
+      "batch": 2,
+      "pass": true
+    }
+  ]
+}
