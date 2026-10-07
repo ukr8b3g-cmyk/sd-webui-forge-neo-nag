@@ -45,6 +45,6 @@ jobs:
           gh release create "$NAG_TAG" "$NAG_ZIP" "$NAG_CHECKSUM" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Forge Neo NAG $NAG_TAG — Initial Krea2 support" \
+            --title "Forge Neo NAG $NAG_TAG — Multi-adapter support" \
             --notes-file "$NAG_NOTES" \
             --latest
