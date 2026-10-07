@@ -12,16 +12,16 @@ META_KEYS = ("Forge NAG", "Forge NAG Negative", "Forge NAG Phi", "Forge NAG Tau"
 
 STRINGS = {
     "adapter": {
-        "en": ("Adapter", "Auto uses the loaded model. Select Krea2, Anima or SDXL manually to override Auto. UI Preset never locks this selection. A structurally incompatible model reports an error; no silent fallback or model switch."),
-        "ja": ("アダプター", "Autoは読み込まれたモデルから判定します。Krea2・Anima・SDXLを手動選択して変更できます。UI Presetでは固定しません。構造が合わない場合は理由を表示し、黙って切り替えたりモデルを変更したりしません。"),
+        "en": ("Adapter", "Auto uses the loaded model. Select Krea2, Anima, SDXL or Klein manually to override Auto. UI Preset never locks this selection. A structurally incompatible model reports an error; no silent fallback or model switch."),
+        "ja": ("アダプター", "Autoは読み込まれたモデルから判定します。Krea2・Anima・SDXL・Kleinを手動選択して変更できます。UI Presetでは固定しません。構造が合わない場合は理由を表示し、黙って切り替えたりモデルを変更したりしません。"),
     },
     "enabled": {
-        "en": ("Enable NAG", "Krea2, Anima and SDXL txt2img. NAG ON/OFF and CFG are your choice. Normal CFG and its negative branch are preserved; no preset or generation setting is changed. OFF, empty text, Phi=0 or Alpha=0 uses the normal path."),
-        "ja": ("NAGを有効化", "Krea2・Anima・SDXLのtxt2imgに対応します。CFGが1以外でもON/OFFを選べます。標準CFGとNegativeの経路を維持し、Presetや生成設定は変更しません。OFF・空欄・Phi=0・Alpha=0では通常経路です。"),
+        "en": ("Enable NAG", "Krea2, Anima, SDXL and Klein txt2img. NAG ON/OFF and CFG are your choice. Normal CFG and its negative branch are preserved; no preset or generation setting is changed. OFF, empty text, Phi=0 or Alpha=0 uses the normal path."),
+        "ja": ("NAGを有効化", "Krea2・Anima・SDXL・Kleinのtxt2imgに対応します。CFGが1以外でもON/OFFを選べます。標準CFGとNegativeの経路を維持し、Presetや生成設定は変更しません。OFF・空欄・Phi=0・Alpha=0では通常経路です。"),
     },
     "negative": {
-        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. Separate from the standard negative box, which remains controlled by Forge. Plain text only; no weights, schedules or LoRA tags. SDXL: up to four CLIP chunks (308 positions). Anima: both tokenizers up to 2048. Krea2: 2048 including its template."),
-        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。標準Negative欄とは独立です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。SDXLは最大4チャンク（308位置）、Animaは両Tokenizerとも2048、Krea2はテンプレート込み2048トークンです。"),
+        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. Separate from the standard negative box, which remains controlled by Forge. Plain text only; no weights, schedules or LoRA tags. SDXL: up to four CLIP chunks (308 positions). Anima: both tokenizers up to 2048. Krea2/Klein: 2048 including the Qwen template."),
+        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。標準Negative欄とは独立です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。SDXLは最大4チャンク（308位置）、Animaは両Tokenizerとも2048、Krea2・KleinはQwenテンプレート込み2048トークンです。"),
     },
     "phi": {
         "en": ("NAG Scale / Phi", "Attention extrapolation strength. Existing default: 4.0. The SDXL test button sets 2.0, not a validated quality recommendation. A higher value can suppress more strongly but can change composition or degrade quality. Zero bypasses NAG."),
@@ -83,13 +83,13 @@ def build_ui(gr, localization="None"):
     text = lambda field: STRINGS[field][lang]
     with gr.Accordion("Forge Neo NAG", open=False, elem_id=f"{PREFIX}_txt2img"):
         gr.Markdown(
-            "**Krea2 / Anima / SDXL（Illustrious）・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
+            "**Krea2 / Anima / SDXL（Illustrious）/ Klein・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
             if lang == "ja" else
-            "**Krea2 / Anima / SDXL (Illustrious) — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
+            "**Krea2 / Anima / SDXL (Illustrious) / Klein — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
         )
         enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
         adapter = gr.Dropdown(
-            choices=[("Auto", "auto"), ("Krea2", "krea2"), ("Anima", "anima"), ("SDXL / Illustrious", "sdxl")],
+            choices=[("Auto", "auto"), ("Krea2", "krea2"), ("Anima", "anima"), ("SDXL / Illustrious", "sdxl"), ("Klein / Flux.2", "klein")],
             value="auto", label=text("adapter")[0], info=text("adapter")[1],
             elem_id=f"{PREFIX}_adapter", interactive=True,
         )

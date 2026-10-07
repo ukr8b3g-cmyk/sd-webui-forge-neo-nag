@@ -60,6 +60,13 @@ def load_bindings(p=None, requested="auto") -> HostBindings:
             from backend.diffusion_engine.anima import Anima as engine_type
             from backend.nn.anima import Anima as dit_type, Block, SelfCrossAttention
             ops, layout = SimpleNamespace(), (Block, SelfCrossAttention)
+        elif selected == "klein":
+            from backend.diffusion_engine.flux2 import Flux2 as engine_type
+            from backend.nn.flux import (IntegratedFluxTransformer2DModel as dit_type,
+                                         DoubleStreamBlock, SingleStreamBlock, SelfAttention,
+                                         attention, apply_mod, fp16_fix)
+            ops = SimpleNamespace(attention=attention, apply_mod=apply_mod, fp16_fix=fp16_fix)
+            layout = (DoubleStreamBlock, SingleStreamBlock, SelfAttention)
         else:
             from backend.diffusion_engine.sdxl import StableDiffusionXL as engine_type
             from backend.nn.unet import (IntegratedUNet2DConditionModel as dit_type,
@@ -94,8 +101,8 @@ def validate_request(p, bindings: HostBindings) -> None:
     if isinstance(p.cfg_scale, bool) or not math.isfinite(cfg):
         raise NAGError("CFG Scale must be a finite number; NAG does not change it.")
     if not isinstance(p.sd_model, bindings.engine_type):
-        raise NAGError(f"Selected {bindings.engine_type.__name__} / {dict(krea2='Krea2', anima='Anima', sdxl='SDXL')[bindings.adapter_id]} adapter is incompatible with the loaded engine. Choose a compatible adapter or turn NAG OFF. / アダプターを変更するかNAGをOFFにしてください。")
-    if bindings.adapter_id in ("anima", "sdxl"):
+        raise NAGError(f"Selected {bindings.engine_type.__name__} / {dict(krea2='Krea2', anima='Anima', sdxl='SDXL', klein='Klein')[bindings.adapter_id]} adapter is incompatible with the loaded engine. Choose a compatible adapter or turn NAG OFF. / アダプターを変更するかNAGをOFFにしてください。")
+    if bindings.adapter_id in ("anima", "sdxl", "klein"):
         prompts = getattr(p, "all_prompts", None) or getattr(p, "prompt", "")
         prompts = [prompts] if isinstance(prompts, str) else prompts
         if any(re.search(r"(?<!\w)AND(?!\w)", text) for text in prompts if isinstance(text, str)):
@@ -139,6 +146,9 @@ def validate_patcher(patcher, bindings: HostBindings):
     elif bindings.adapter_id == "sdxl":
         from .adapters.sdxl import enumerate_attn2
         enumerate_attn2(model, bindings.layout_types)
+    elif bindings.adapter_id == "klein":
+        from .adapters.klein import validate_model
+        validate_model(model, bindings.layout_types)
     else:
         raise NAGError("Unknown adapter binding.")
     if getattr(patcher, "controlnet_linked_list", None) is not None:
@@ -176,6 +186,9 @@ def encode_negative(p, config: NAGConfig, bindings: HostBindings) -> torch.Tenso
         return encode(p, config, bindings)
     if bindings.adapter_id == "anima":
         from .adapters.anima import encode_negative as encode
+        return encode(p, config, bindings)
+    if bindings.adapter_id == "klein":
+        from .adapters.klein import encode_negative as encode
         return encode(p, config, bindings)
     engine = p.sd_model.text_processing_engine_qwen
     tokens = engine.tokenize(config.negative)
@@ -284,6 +297,8 @@ class NAGModelWrapper:
         allowed = {"c_crossattn", "transformer_options", "control", "c_concat"}
         if self.bindings.adapter_id == "sdxl":
             allowed.add("y")
+        if self.bindings.adapter_id == "klein":
+            allowed.update(("y", "guidance"))
         if any(key not in allowed and value is not None for key, value in conditions.items()):
             raise NAGError("NAG received unsupported extra model conditions.")
         if sigma.numel() == 0 or sigma.numel() not in (1, x.shape[0]):
@@ -301,7 +316,7 @@ class NAGModelWrapper:
             return result
         if not all(active):
             raise NAGError("NAG cannot mix in-range and out-of-range sigma rows in one model call.")
-        if self.bindings.adapter_id == "krea2":
+        if self.bindings.adapter_id in ("krea2", "klein"):
             result = self._krea_call(apply_model, x, sigma, conditions, layout)
         else:
             self.adapter.begin_call(layout.positive_rows, x.shape[0], x.device)
@@ -375,11 +390,15 @@ class SamplingSession:
         else:
             if self.bindings.adapter_id == "anima":
                 from .adapters.anima import AnimaAdapter as AdapterClass
+            elif self.bindings.adapter_id == "klein":
+                from .adapters.klein import KleinAdapter as AdapterClass
             else:
                 from .adapters.sdxl import SDXLAdapter as AdapterClass
             adapter = AdapterClass(model, self.negative_context, self.config, self.bindings.ops,
                                    self.bindings.layout_types)
             reserve = adapter.memory_reserve(kwargs["x"], patcher.model.computation_dtype)
+            if self.bindings.adapter_id == "klein" and float(p.cfg_scale) != 1.0:
+                reserve *= 2
         wrapper = NAGModelWrapper(patcher.model, adapter, self.config, self.bindings)
         clone = patcher.clone()
         if clone is patcher or clone.model_options is patcher.model_options:
@@ -415,6 +434,8 @@ class SamplingSession:
         })
         if self.bindings.adapter_id == "krea2":
             data["Forge NAG Text Fusion Calls"] = adapter.text_fusion_calls
+        elif self.bindings.adapter_id == "klein":
+            data["Forge NAG Joint Attention Calls"] = adapter.attention_calls
         else:
             data["Forge NAG Cross Attention Calls"] = adapter.attention_calls
         return data
