@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 — 2026-10-08
+
+- Added Klein / Flux.2 adapter and Auto routing.
+- Added Klein DoubleStream/SingleStream NAG path while preserving native CFG.
+- Added Klein implementation/validation docs and CPU regression coverage.
+- CPU suite after Klein: 315 passed; real pretrained-model GPU validation remains pending.
+
+## 0.2.0 — 2026-10-08
+
+- Added Anima and SDXL / Illustrious adapters.
+- Added manual adapter selection and removed the CFG=1-only restriction.
+- Preserved Forge preset/generation settings and native CFG ownership.
+
 ## 0.1.0 — 2026-10-07
 
 Initial implementation; CPU-validated, pretrained-model GPU validation pending.
