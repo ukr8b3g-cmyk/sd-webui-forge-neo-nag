@@ -202,7 +202,8 @@ def validate_patcher(patcher, bindings: HostBindings):
 def validate_transformer_options(options: dict, adapter=None) -> None:
     if not isinstance(options, dict):
         raise NAGError("Unsupported transformer_options container.")
-    for key in ("patches", "patches_replace", "block_modifiers", "block_inner_modifiers", "attention_override"):
+    for key in ("patches", "patches_replace", "block_modifiers", "block_inner_modifiers",
+                "attention_override", "optimized_attention_override"):
         if key == "patches_replace" and adapter is not None and hasattr(adapter, "validate_owned"):
             adapter.validate_owned(options)
         elif _has_value(options.get(key)):

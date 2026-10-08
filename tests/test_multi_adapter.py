@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from forge_neo_nag.config import NAGConfig, NAGError
-from forge_neo_nag.registry import choose_adapter, ENGINE_TYPES
+from forge_neo_nag.registry import choose_adapter, ENGINE_TYPES, ADAPTER_CHOICES
 from forge_neo_nag.adapters.base import BranchLayout, validate_literal_text
 from forge_neo_nag.host import arm_request, SamplingSession, validate_request
 from forge_neo_nag.ui import build_ui, DEFAULTS
@@ -118,3 +118,19 @@ def test_ui_manual_selector_button_does_not_write_forge_controls():
     assert [ids[i] for i in dependencies[0]["outputs"]]==[
         "forge_neo_nag_phi","forge_neo_nag_tau","forge_neo_nag_alpha",
         "forge_neo_nag_sigma_start","forge_neo_nag_sigma_end"]
+
+
+@pytest.mark.parametrize("locale", ["None", "ja_JP"])
+@pytest.mark.parametrize("label,expected", [choice for choice in ADAPTER_CHOICES if choice[1] != "auto"])
+def test_manual_adapter_display_name_restores_to_internal_id(locale,label,expected):
+    import gradio as gr
+    with gr.Blocks():
+        controls,fields=build_ui(gr,locale)
+    params={"Forge NAG Adapter Selection":label}
+    assert fields[-1][1](params)==expected
+
+
+@pytest.mark.parametrize("label,expected", [choice for choice in ADAPTER_CHOICES if choice[1] != "auto"])
+def test_manual_adapter_internal_id_roundtrip_stays_stable(label,expected):
+    params=NAGConfig.parse(True,"glasses",adapter=expected).metadata()
+    assert params["Forge NAG Adapter Selection"]==expected

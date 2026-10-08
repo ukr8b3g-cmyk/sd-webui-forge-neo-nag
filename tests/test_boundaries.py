@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from forge_neo_nag.config import NAGConfig,NAGError
-from forge_neo_nag.host import SamplingSession,validate_patcher
+from forge_neo_nag.host import SamplingSession,validate_patcher,validate_transformer_options
 from .helpers import Processing,make_bindings
 
 
@@ -76,3 +76,19 @@ def test_live_lora_style_linear_is_used_not_replaced():
     finally:
         hook.remove()
         session.close()
+
+
+def test_sparse_attention_override_is_rejected_at_preflight():
+    with pytest.raises(NAGError,match="optimized_attention_override"):
+        validate_transformer_options({"optimized_attention_override":lambda *a,**k:None})
+
+
+def test_sparse_attention_override_is_rejected_if_added_after_install():
+    p,session,payload=wrapper_setup()
+    payload["c"]["transformer_options"]["optimized_attention_override"]=lambda *a,**k:None
+    try:
+        with pytest.raises(NAGError,match="optimized_attention_override"):
+            session.wrapper(p.base.model.apply_model,payload)
+    finally:
+        session.close()
+    assert p.sd_model.forge_objects.unet is p.base

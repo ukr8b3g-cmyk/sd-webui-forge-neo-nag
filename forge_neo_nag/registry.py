@@ -8,6 +8,26 @@ from __future__ import annotations
 from .config import NAGError
 
 ADAPTER_IDS = ("auto", "krea2", "anima", "sdxl", "klein", "zimage", "ernie")
+ADAPTER_CHOICES = (
+    ("Auto", "auto"),
+    ("Krea2", "krea2"),
+    ("Anima", "anima"),
+    ("SDXL / Illustrious", "sdxl"),
+    ("Klein / Flux.2", "klein"),
+    ("Z-Image Turbo (ZIT)", "zimage"),
+    ("Ernie Image", "ernie"),
+)
+_ADAPTER_ALIASES = {
+    **{key: key for key in ADAPTER_IDS},
+    **{label.strip().lower(): key for label, key in ADAPTER_CHOICES},
+    "sdxl/illustrious": "sdxl",
+    "sdxl／illustrious": "sdxl",
+    "klein/flux.2": "klein",
+    "klein／flux.2": "klein",
+    "z-image turbo": "zimage",
+    "z-image turbo（zit）": "zimage",
+    "ernie": "ernie",
+}
 ENGINE_TYPES = {
     "krea2": ("backend.diffusion_engine.krea", "Krea2"),
     "anima": ("backend.diffusion_engine.anima", "Anima"),
@@ -21,10 +41,13 @@ ENGINE_TYPES = {
 def normalize_choice(value) -> str:
     if not isinstance(value, str):
         raise NAGError("NAG Adapter must be Auto, Krea2, Anima, SDXL, Klein, Z-Image or Ernie. / アダプターを選択してください。")
-    value = value.strip().lower()
-    if value not in ADAPTER_IDS:
-        raise NAGError(f"Unknown NAG adapter '{value}'. Select Auto, Krea2, Anima, SDXL, Klein, Z-Image or Ernie.")
-    return value
+    raw = value.strip()
+    selected = _ADAPTER_ALIASES.get(raw.lower())
+    if selected is None:
+        raise NAGError(
+            f"Unknown NAG adapter '{raw}'. Select Auto, Krea2, Anima, SDXL, Klein, Z-Image or Ernie."
+        )
+    return selected
 
 
 def choose_adapter(engine, requested="auto", preset=None) -> str:

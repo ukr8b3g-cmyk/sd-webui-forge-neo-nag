@@ -88,8 +88,9 @@ def build_ui(gr, localization="None"):
             "**Krea2 / Anima / SDXL (Illustrious) / Klein / Z-Image Turbo / Ernie Image — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
         )
         enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
+        from .registry import ADAPTER_CHOICES
         adapter = gr.Dropdown(
-            choices=[("Auto", "auto"), ("Krea2", "krea2"), ("Anima", "anima"), ("SDXL / Illustrious", "sdxl"), ("Klein / Flux.2", "klein"), ("Z-Image Turbo (ZIT)", "zimage"), ("Ernie Image", "ernie")],
+            choices=list(ADAPTER_CHOICES),
             value="auto", label=text("adapter")[0], info=text("adapter")[1],
             elem_id=f"{PREFIX}_adapter", interactive=True,
         )
