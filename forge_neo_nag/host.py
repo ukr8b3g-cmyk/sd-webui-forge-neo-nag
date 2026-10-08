@@ -94,6 +94,13 @@ def load_bindings(p=None, requested="auto") -> HostBindings:
                                   weights_manual_cast=weights_manual_cast, ck=ck)
             layout = (ErnieImageSharedAdaLNBlock, ErnieImageAttention,
                       ErnieImagePatchEmbedDynamic)
+        elif selected == "qwenimage":
+            from backend.diffusion_engine.qwen import QwenImage as engine_type
+            from backend.nn.qwen import (QwenImageTransformer2DModel as dit_type,
+                                         QwenImageTransformerBlock, Attention,
+                                         apply_rotary_emb, attention_function)
+            ops = SimpleNamespace(rope=apply_rotary_emb, attention=attention_function)
+            layout = (QwenImageTransformerBlock, Attention)
         else:
             from backend.diffusion_engine.sdxl import StableDiffusionXL as engine_type
             from backend.nn.unet import (IntegratedUNet2DConditionModel as dit_type,
@@ -128,12 +135,14 @@ def validate_request(p, bindings: HostBindings) -> None:
     if isinstance(p.cfg_scale, bool) or not math.isfinite(cfg):
         raise NAGError("CFG Scale must be a finite number; NAG does not change it.")
     if not isinstance(p.sd_model, bindings.engine_type):
-        raise NAGError(f"Selected {bindings.engine_type.__name__} / {dict(krea2='Krea2', anima='Anima', sdxl='SDXL', klein='Klein', zimage='Z-Image', ernie='Ernie')[bindings.adapter_id]} adapter is incompatible with the loaded engine. Choose a compatible adapter or turn NAG OFF. / アダプターを変更するかNAGをOFFにしてください。")
-    if bindings.adapter_id in ("anima", "sdxl", "klein", "zimage", "ernie"):
+        raise NAGError(f"Selected {bindings.engine_type.__name__} / {dict(krea2='Krea2', anima='Anima', sdxl='SDXL', klein='Klein', zimage='Z-Image', ernie='Ernie', qwenimage='Qwen-Image')[bindings.adapter_id]} adapter is incompatible with the loaded engine. Choose a compatible adapter or turn NAG OFF. / アダプターを変更するかNAGをOFFにしてください。")
+    if bindings.adapter_id in ("anima", "sdxl", "klein", "zimage", "ernie", "qwenimage"):
         prompts = getattr(p, "all_prompts", None) or getattr(p, "prompt", "")
         prompts = [prompts] if isinstance(prompts, str) else prompts
         if any(re.search(r"(?<!\w)AND(?!\w)", text) for text in prompts if isinstance(text, str)):
             raise NAGError("Positive AND composition is not supported by this NAG adapter.")
+    if bindings.adapter_id == "qwenimage" and getattr(bindings.dynamic_args, "edit", False):
+        raise NAGError("Qwen-Image Edit-2511 reference/edit requires a separate validated adapter; txt2img only.")
     if bindings.adapter_id == "sdxl" and getattr(p.sd_model, "use_shift", False):
         raise NAGError("Rectified-Flow SDXL is not supported by this adapter.")
     if getattr(p, "enable_hr", False) or getattr(p, "is_hr_pass", False) or getattr(p, "txt2img_upscale", False):
@@ -182,6 +191,9 @@ def validate_patcher(patcher, bindings: HostBindings):
     elif bindings.adapter_id == "ernie":
         from .adapters.ernie import validate_model
         validate_model(model, bindings.layout_types)
+    elif bindings.adapter_id == "qwenimage":
+        from .adapters.qwenimage import validate_model
+        validate_model(model, bindings.layout_types)
     else:
         raise NAGError("Unknown adapter binding.")
     if getattr(patcher, "controlnet_linked_list", None) is not None:
@@ -229,6 +241,9 @@ def encode_negative(p, config: NAGConfig, bindings: HostBindings) -> torch.Tenso
         return encode(p, config, bindings)
     if bindings.adapter_id == "ernie":
         from .adapters.ernie import encode_negative as encode
+        return encode(p, config, bindings)
+    if bindings.adapter_id == "qwenimage":
+        from .adapters.qwenimage import encode_negative as encode
         return encode(p, config, bindings)
     engine = p.sd_model.text_processing_engine_qwen
     tokens = engine.tokenize(config.negative)
@@ -341,6 +356,8 @@ class NAGModelWrapper:
             allowed.update(("y", "guidance"))
         if self.bindings.adapter_id == "zimage":
             allowed.update(("num_tokens", "attention_mask"))
+        if self.bindings.adapter_id == "qwenimage":
+            allowed.update(("attention_mask", "guidance"))
         if any(key not in allowed and value is not None for key, value in conditions.items()):
             raise NAGError("NAG received unsupported extra model conditions.")
         if sigma.numel() == 0 or sigma.numel() not in (1, x.shape[0]):
@@ -358,7 +375,7 @@ class NAGModelWrapper:
             return result
         if not all(active):
             raise NAGError("NAG cannot mix in-range and out-of-range sigma rows in one model call.")
-        if self.bindings.adapter_id in ("krea2", "klein", "zimage", "ernie"):
+        if self.bindings.adapter_id in ("krea2", "klein", "zimage", "ernie", "qwenimage"):
             result = self._krea_call(apply_model, x, sigma, conditions, layout)
         else:
             self.adapter.begin_call(layout.positive_rows, x.shape[0], x.device)
@@ -439,12 +456,14 @@ class SamplingSession:
                 from .adapters.zimage import ZImageAdapter as AdapterClass
             elif self.bindings.adapter_id == "ernie":
                 from .adapters.ernie import ErnieAdapter as AdapterClass
+            elif self.bindings.adapter_id == "qwenimage":
+                from .adapters.qwenimage import QwenImageAdapter as AdapterClass
             else:
                 from .adapters.sdxl import SDXLAdapter as AdapterClass
             adapter = AdapterClass(model, self.negative_context, self.config, self.bindings.ops,
                                    self.bindings.layout_types)
             reserve = adapter.memory_reserve(kwargs["x"], patcher.model.computation_dtype)
-            if self.bindings.adapter_id in ("klein", "zimage", "ernie") and float(p.cfg_scale) != 1.0:
+            if self.bindings.adapter_id in ("klein", "zimage", "ernie", "qwenimage") and float(p.cfg_scale) != 1.0:
                 reserve *= 2
         wrapper = NAGModelWrapper(patcher.model, adapter, self.config, self.bindings)
         clone = patcher.clone()
@@ -481,7 +500,7 @@ class SamplingSession:
         })
         if self.bindings.adapter_id == "krea2":
             data["Forge NAG Text Fusion Calls"] = adapter.text_fusion_calls
-        elif self.bindings.adapter_id in ("klein", "zimage", "ernie"):
+        elif self.bindings.adapter_id in ("klein", "zimage", "ernie", "qwenimage"):
             data["Forge NAG Joint Attention Calls"] = adapter.attention_calls
         else:
             data["Forge NAG Cross Attention Calls"] = adapter.attention_calls

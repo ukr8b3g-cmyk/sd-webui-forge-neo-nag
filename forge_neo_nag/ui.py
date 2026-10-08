@@ -12,16 +12,16 @@ META_KEYS = ("Forge NAG", "Forge NAG Negative", "Forge NAG Phi", "Forge NAG Tau"
 
 STRINGS = {
     "adapter": {
-        "en": ("Adapter", "Auto uses the loaded model. Select Krea2, Anima, SDXL, Klein, Z-Image or Ernie manually to override Auto. UI Preset never locks this selection. A structurally incompatible model reports an error; no silent fallback or model switch."),
-        "ja": ("アダプター", "Autoは読み込まれたモデルから判定します。Krea2・Anima・SDXL・Klein・Z-Image・Ernieを手動選択して変更できます。UI Presetでは固定しません。構造が合わない場合は理由を表示し、黙って切り替えたりモデルを変更したりしません。"),
+        "en": ("Adapter", "Auto uses the loaded model. Select Krea2, Anima, SDXL, Klein, Z-Image, Ernie or Qwen-Image manually to override Auto. UI Preset never locks this selection. A structurally incompatible model reports an error; no silent fallback or model switch."),
+        "ja": ("アダプター", "Autoは読み込まれたモデルから判定します。Krea2・Anima・SDXL・Klein・Z-Image・Ernie・Qwen-Imageを手動選択して変更できます。UI Presetでは固定しません。構造が合わない場合は理由を表示し、黙って切り替えたりモデルを変更したりしません。"),
     },
     "enabled": {
-        "en": ("Enable NAG", "Krea2, Anima, SDXL, Klein, Z-Image and Ernie txt2img. NAG ON/OFF and CFG are your choice. Normal CFG and its negative branch are preserved; no preset or generation setting is changed. OFF, empty text, Phi=0 or Alpha=0 uses the normal path."),
-        "ja": ("NAGを有効化", "Krea2・Anima・SDXL・Klein・Z-Image・Ernieのtxt2imgに対応します。CFGが1以外でもON/OFFを選べます。標準CFGとNegativeの経路を維持し、Presetや生成設定は変更しません。OFF・空欄・Phi=0・Alpha=0では通常経路です。"),
+        "en": ("Enable NAG", "Krea2, Anima, SDXL, Klein, Z-Image, Ernie and Qwen-Image txt2img. NAG ON/OFF and CFG are your choice. Normal CFG and its negative branch are preserved; no preset or generation setting is changed. OFF, empty text, Phi=0 or Alpha=0 uses the normal path."),
+        "ja": ("NAGを有効化", "Krea2・Anima・SDXL・Klein・Z-Image・Ernie・Qwen-Imageのtxt2imgに対応します。CFGが1以外でもON/OFFを選べます。標準CFGとNegativeの経路を維持し、Presetや生成設定は変更しません。OFF・空欄・Phi=0・Alpha=0では通常経路です。"),
     },
     "negative": {
-        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. Separate from the standard negative box, which remains controlled by Forge. Plain text only; no weights, schedules or LoRA tags. SDXL: up to four CLIP chunks (308 positions). Anima: both tokenizers up to 2048. Krea2/Klein/Z-Image: 2048 including the Qwen template. Ernie: NAG safety limit 2048 Ministral tokens."),
-        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。標準Negative欄とは独立です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。SDXLは最大4チャンク（308位置）、Animaは両Tokenizerとも2048、Krea2・Klein・Z-ImageはQwenテンプレート込み2048、ErnieはNAG安全上限2048 Ministralトークンです。"),
+        "en": ("NAG Negative Prompt", "Describe what to suppress, for example: big wings. Separate from the standard negative box, which remains controlled by Forge. Plain text only; no weights, schedules or LoRA tags. SDXL: up to four CLIP chunks (308 positions). Anima: both tokenizers up to 2048. Krea2/Klein/Z-Image: 2048 including the Qwen template. Ernie: up to 2048 Ministral tokens. Qwen-Image: up to 2048 Qwen2.5-VL tokens."),
+        "ja": ("NAG Negative Prompt（抑制したい内容）", "例：big wings のように抑制したいものを書きます。標準Negative欄とは独立です。通常の文章のみ。重み・スケジュール・LoRAタグは非対応です。SDXLは最大4チャンク（308位置）、Animaは両Tokenizerとも2048、Krea2・Klein・Z-ImageはQwenテンプレート込み2048、Ernieは最大2048 Ministral、Qwen-Imageは最大2048 Qwen2.5-VLトークンです。"),
     },
     "phi": {
         "en": ("NAG Scale / Phi", "Attention extrapolation strength. Existing default: 4.0. The SDXL test button sets 2.0, not a validated quality recommendation. A higher value can suppress more strongly but can change composition or degrade quality. Zero bypasses NAG."),
@@ -83,9 +83,9 @@ def build_ui(gr, localization="None"):
     text = lambda field: STRINGS[field][lang]
     with gr.Accordion("Forge Neo NAG", open=False, elem_id=f"{PREFIX}_txt2img"):
         gr.Markdown(
-            "**Krea2 / Anima / SDXL（Illustrious）/ Klein / Z-Image Turbo / Ernie Image・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
+            "**Krea2 / Anima / SDXL（Illustrious）/ Klein / Z-Image Turbo / Ernie Image / Qwen-Image (2512)・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
             if lang == "ja" else
-            "**Krea2 / Anima / SDXL (Illustrious) / Klein / Z-Image Turbo / Ernie Image — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
+            "**Krea2 / Anima / SDXL (Illustrious) / Klein / Z-Image Turbo / Ernie Image / Qwen-Image (2512) — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
         )
         enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
         from .registry import ADAPTER_CHOICES

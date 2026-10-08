@@ -1,0 +1,30 @@
+name: CPU regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'forge_neo_nag/**'
+      - 'tests/**'
+      - '.github/workflows/cpu-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up isolated CPU test environment
+        run: |
+          python3 -m venv /tmp/forge-nag-ci
+          /tmp/forge-nag-ci/bin/pip install --upgrade pip
+          /tmp/forge-nag-ci/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
+          /tmp/forge-nag-ci/bin/pip install pytest einops pillow gradio
+      - name: Execute CPU regression suite
+        run: /tmp/forge-nag-ci/bin/python -m pytest -q
+      - name: Verify JavaScript syntax
+        run: node --check javascript/forge_neo_nag.js

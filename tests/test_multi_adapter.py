@@ -22,7 +22,7 @@ def test_auto_uses_model_and_never_forces_preset(family,preset):
     assert choose_adapter(engine,"auto",preset)==family
 
 
-@pytest.mark.parametrize("choice",["krea2","anima","sdxl","klein","zimage","ernie"])
+@pytest.mark.parametrize("choice",["krea2","anima","sdxl","klein","zimage","ernie","qwenimage"])
 def test_manual_choice_available_even_if_auto_cannot_detect(choice):
     engine=object()
     with pytest.raises(NAGError,match="manually"):choose_adapter(engine)
@@ -105,8 +105,8 @@ def test_ui_manual_selector_button_does_not_write_forge_controls():
     with gr.Blocks() as demo:controls,fields=build_ui(gr,"ja_JP")
     assert len(controls)==8
     assert controls[-1].value=="auto" and controls[-1].interactive is not False
-    assert [v for _,v in controls[-1].choices]==["auto","krea2","anima","sdxl","klein","zimage","ernie"]
-    for selection in ("auto","sdxl","anima","krea2","klein","zimage","ernie"):
+    assert [v for _,v in controls[-1].choices]==["auto","krea2","anima","sdxl","klein","zimage","ernie","qwenimage"]
+    for selection in ("auto","sdxl","anima","krea2","klein","zimage","ernie","qwenimage"):
         params=NAGConfig.parse(True,"glasses",adapter=selection).metadata()
         assert fields[-1][1](params)==selection
     assert fields[-1][1]({})=="auto"
