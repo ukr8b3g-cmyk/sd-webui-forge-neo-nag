@@ -3,30 +3,31 @@
 <img width="900" height="440" alt="{9A932AEB-0587-439C-9733-EF51F05D8AAE}" src="https://github.com/user-attachments/assets/a20fc273-58cc-46d1-a7e4-279bcf7f5d5b" />
 
 
-**Normalized Attention Guidance for Forge Neo. Multi-adapter support for Krea2, Anima, SDXL / Illustrious, Klein / Flux.2, Z-Image Turbo and Ernie Image.**
+**Normalized Attention Guidance for Forge Neo. Multi-adapter support for Krea2, Anima, SDXL / Illustrious, Klein / Flux.2, Z-Image Turbo, Ernie Image and Qwen-Image (2512 / base).**
 
 [日本語](#日本語) · [English](#english) · [Download / ダウンロード](https://github.com/ukr8b3g-cmyk/sd-webui-forge-neo-nag/releases) · [Validation / 検証](docs/VALIDATION_MULTI_ADAPTER.md) · [Implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md)
 
-> **v0.4.2 — adds late Z-Image/Ernie mutation guards, real RoPE regression fixtures and updated multi-adapter instructions.**
+> **v0.5.0 — adds native Qwen-Image (including 2512) txt2img NAG. Qwen-Image-2.1 and Edit-2511 references remain excluded.**
 > ZIT includes the native `adaln_input` refiner-time contract fix. Pretrained-model GPU validation for ZIT/Ernie is still pending.
 > This is a Forge Neo WebUI **extension**, not a ComfyUI custom node.
 > NAG does not rewrite Forge presets, CFG, sampler, scheduler, steps, resolution, Clip skip, LoRA, or the standard Negative Prompt.
 >
-> **Current v0.4.2 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image`. Sparse Attention overrides are rejected while NAG is active, and saved manual Adapter selections restore to their stable internal IDs.
+> **Current v0.5.0 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)`. Preset and CFG remain user-controlled. Native Edit-2511 reference generation is not enabled.
 
 ## 日本語
 
-### v0.4.2 の要点
+### v0.5.0 の要点
 
-- 対応アダプター: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**。
+- 対応アダプター: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)**。
 - アダプターは`Auto`または手動選択。Presetと一致しない場合もユーザーが自分で修正できます。
 - **CFG=1固定は撤廃**。通常CFGと標準Negative枝はForge Neo本来の処理を維持します。
 - Preset、CFG、sampler、scheduler、steps、解像度、Clip skip、LoRAをNAG側から自動変更しません。
 - `txt2img / 参照画像なし`が現在の共通対応範囲です。Hires fix、img2img、Refiner、ControlNet、CFG++などは対象外です。
-- ZIT/Ernie対応に加え、Forge Sparse Attentionの`optimized_attention_override`競合を事前/実行時に拒否し、手動Adapterの保存・復元を安定した内部IDへ統一しました。ZIT/Ernieの実モデルGPU、FP8、実LoRA、画質、速度、VRAMは未確認です。
+- Qwen-Image（2512／基本系列）専用のJoint AttentionアダプターとQwen2.5-VL 7BによるNAG Negative入力を追加しました。**Qwen-Image-2.1は別モデルとして非対応、Edit-2511の参照・画像編集はPhase B待ち**です。実モデルGPU、FP8、実LoRA、画質、速度、VRAMは未確認です。
 
 共通仕様は[実装契約](docs/MULTI_ADAPTER_IMPLEMENTATION.md)と[検証記録](docs/VALIDATION_MULTI_ADAPTER.md)です。
-モデル固有の実装はKlein、Z-Image、Ernieの各文書を参照してください。
+モデル固有の実装はKlein、Z-Image、Ernie、Qwen-Imageの各文書を参照してください。
+[Qwen-Image実装と制限](docs/QWENIMAGE_IMPLEMENTATION.md)・[Qwen-Image CPU検証](docs/VALIDATION_QWENIMAGE.md)をご確認ください。
 
 ### 何ができるか
 
@@ -100,7 +101,7 @@ NAG成功として保存せずエラーにします。空欄・Phi=0・Alpha=0�
 
 ### V1の範囲
 
-共通初期対応は**Krea2 / Anima / SDXL / Klein / Z-Image / Ernieのtxt2img（参照画像なし）**です。CFGはユーザーが設定し、通常CFGの合成はForge側で行います。
+共通初期対応は**Krea2 / Anima / SDXL / Klein / Z-Image / Ernie / Qwen-Imageのtxt2img（参照画像なし）**です。CFGはユーザーが設定し、通常CFGの合成はForge側で行います。
 通常の静的LoRAとForge既存の量子化Linear層を再利用する構造ですが、**実GPUでのFP8・量子化・LoRAの
 組合せ試験は未実施**です。コード対応と実機確認済みを区別してください。
 
@@ -109,7 +110,7 @@ Token merging、torch.compileされたKrea2、他のAttention/Guidanceパッチ�
 有効なNAG要求で検出した場合、設定を勝手に変えたり、NAGを無視して通常画像を返したりせず停止します。
 
 NAG欄は通常テキスト専用です。重み構文・プロンプトスケジュール・`AND`・`BREAK`・LoRAタグには対応しません。
-既知の非対応構文はエラーにし、黙って解釈を変えません。最大32768文字です。トークン上限はモデル別です（SDXLはCLIP最大4チャンク、Animaは各Tokenizer最大2048、Krea2/Klein/ZIT/Ernieは最大2048）。
+既知の非対応構文はエラーにし、黙って解釈を変えません。最大32768文字です。トークン上限はモデル別です（SDXLはCLIP最大4チャンク、Animaは各Tokenizer最大2048、Krea2/Klein/ZIT/Ernie/Qwen-Imageは最大2048）。
 上限を超えても切り捨てずエラーにします。標準プロンプトのStyleやWildcardをNAG欄へ自動適用しません。
 
 ### 最適化と再現性
@@ -136,16 +137,16 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 
 ## English
 
-### v0.4.2 summary
+### v0.5.0 summary
 
-- Adapters: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**.
+- Adapters: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)**.
 - Adapter selection can be `Auto` or manual.
 - **CFG=1 is no longer required**; Forge's native standard Negative branch and CFG composition are preserved.
 - NAG does not change presets, CFG, sampler, scheduler, steps, resolution, Clip skip or LoRA.
 - Current common scope: `txt2img`, no reference images. Hires fix, img2img, Refiner, ControlNet and CFG++ remain unsupported.
-- ZIT uses Hybrid RoPE and the native `adaln_input` refiner-time contract; Ernie uses its native Ministral3 conditioning and joint-attention path. Pretrained-model GPU behavior, FP8, real LoRA combinations, image quality, speed and VRAM remain unverified.
+- Qwen-Image (including 2512) adds a native Qwen2.5-VL text-encoder NAG path with shared image Q/K/V. Qwen-Image-2.1 and Edit-2511 reference/image editing are not supported in this adapter. Pretrained-model GPU behavior, FP8, real LoRA combinations, image quality, speed and VRAM remain unverified.
 
-The following instructions describe all six adapters; model-specific details are documented separately. The common contract is
+The following instructions describe all seven adapters; model-specific details are documented separately. The common contract is
 [Multi-adapter implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md), with model-specific details in the Klein, Z-Image and Ernie implementation documents under `docs/`.
 
 ### Purpose
@@ -213,7 +214,7 @@ supported by V1. Detected incompatible active requests stop; settings are not si
 changed, and ordinary generation is not silently substituted for requested NAG.
 
 The NAG box accepts plain text only. Known weights, schedules, `AND`, `BREAK` and LoRA
-tags are rejected. The limit is 32768 characters, with model-specific token limits (SDXL: up to four CLIP chunks; Anima: 2048 per tokenizer; Krea2/Klein/ZIT/Ernie: up to 2048). Input is never silently truncated. Styles/wildcards from standard prompts
+tags are rejected. The limit is 32768 characters, with model-specific token limits (SDXL: up to four CLIP chunks; Anima: 2048 per tokenizer; Krea2/Klein/ZIT/Ernie/Qwen-Image: up to 2048). Input is never silently truncated. Styles/wildcards from standard prompts
 are not automatically applied to this independent field.
 
 ### Optimization, state and metadata

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-10-08
+
+- Add Qwen-Image joint-attention NAG adapter for the native Forge `QwenImage` model family, including Qwen-Image-2512 txt2img without references.
+- Auto/manual adapter routing uses the loaded `backend.diffusion_engine.qwen.QwenImage` engine; Qwen-Image-2.1 remains a separate unsupported model.
+- Reuse native Qwen2.5-VL 7B negative conditioning, native Qwen-Image forward, 3-axis RoPE, time modulation and projection layers; share image Q/K/V and guide image rows only.
+- Keep Forge native CFG, standard Negative, preset and sampler settings; reject Edit-2511/reference mode until Phase B native-edit and GPU parity checks.
+- Add reduced native-contract tests, CFG mixed-branch/unconditional checks, an independent CPU regression workflow, and implementation/validation documentation.
+- CPU tests do not validate pretrained GPU, FP8, real LoRA, visual suppression or Qwen-Image-Edit-2511.
+
 ## 0.4.2 — 2026-10-08
 
 - Release the post-install Z-Image / Ernie Block/Attention mutation guard already committed to main (F01).
