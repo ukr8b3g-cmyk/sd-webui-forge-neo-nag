@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-10-08
+
+- Added Z-Image Turbo (ZIT) adapter with Hybrid RoPE and shared image Q/K/V.
+- Fixed the ZIT noise-refiner contract to pass the computed `adaln_input`, matching Forge `NextDiT.forward`.
+- Added Ernie Image adapter with native Ministral3 conditioning, joint-attention NAG and Hybrid RoPE.
+- Extended Auto/manual adapter routing and UI to ZIT and Ernie.
+- Preserved native Forge CFG ownership, standard Negative branch and user generation settings.
+- Pretrained-model GPU validation for ZIT/Ernie remains pending; the publishing workflow performs syntax/package verification, not full GPU or image-quality validation.
+
 ## 0.3.0 — 2026-10-08
 
 - Added Klein / Flux.2 adapter and Auto routing.
