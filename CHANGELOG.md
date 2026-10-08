@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 — 2026-10-08
+
+- Reject Forge Sparse Attention's `optimized_attention_override` before and during NAG sampling.
+- Fix manual Adapter save/restore by normalizing display labels and stable internal IDs through one registry mapping.
+- Add regression coverage for Sparse Attention conflicts and all six manual adapters across English/Japanese UI restore cases.
+- No model architecture, CFG math, sampler, scheduler or preset behavior is changed by this maintenance release.
+
 ## 0.4.0 — 2026-10-08
 
 - Added Z-Image Turbo (ZIT) adapter with Hybrid RoPE and shared image Q/K/V.

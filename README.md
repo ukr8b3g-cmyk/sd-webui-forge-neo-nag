@@ -7,23 +7,23 @@
 
 [日本語](#日本語) · [English](#english) · [Download / ダウンロード](https://github.com/ukr8b3g-cmyk/sd-webui-forge-neo-nag/releases) · [Validation / 検証](docs/VALIDATION_MULTI_ADAPTER.md) · [Implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md)
 
-> **v0.4.0 — adds Z-Image Turbo (ZIT) and Ernie Image to the v0.3 adapter set.**
+> **v0.4.1 — maintenance release for Sparse Attention conflict detection and manual Adapter restore.**
 > ZIT includes the native `adaln_input` refiner-time contract fix. Pretrained-model GPU validation for ZIT/Ernie is still pending.
 > This is a Forge Neo WebUI **extension**, not a ComfyUI custom node.
 > NAG does not rewrite Forge presets, CFG, sampler, scheduler, steps, resolution, Clip skip, LoRA, or the standard Negative Prompt.
 >
-> **Current v0.4 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image`. CFG is user-controlled; CFG=1 is not required. See the model-specific implementation/validation documents in `docs/`.
+> **Current v0.4.1 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image`. Sparse Attention overrides are rejected while NAG is active, and saved manual Adapter selections restore to their stable internal IDs.
 
 ## 日本語
 
-### v0.4.0 の要点
+### v0.4.1 の要点
 
 - 対応アダプター: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**。
 - アダプターは`Auto`または手動選択。Presetと一致しない場合もユーザーが自分で修正できます。
 - **CFG=1固定は撤廃**。通常CFGと標準Negative枝はForge Neo本来の処理を維持します。
 - Preset、CFG、sampler、scheduler、steps、解像度、Clip skip、LoRAをNAG側から自動変更しません。
 - `txt2img / 参照画像なし`が現在の共通対応範囲です。Hires fix、img2img、Refiner、ControlNet、CFG++などは対象外です。
-- ZITではHybrid RoPEとnative `adaln_input`契約を実装し、ErnieではMinistral3＋Joint Attention専用経路を追加しています。ZIT/Ernieの実モデルGPU、FP8、実LoRA、画質、速度、VRAMは未確認です。
+- ZIT/Ernie対応に加え、Forge Sparse Attentionの`optimized_attention_override`競合を事前/実行時に拒否し、手動Adapterの保存・復元を安定した内部IDへ統一しました。ZIT/Ernieの実モデルGPU、FP8、実LoRA、画質、速度、VRAMは未確認です。
 
 以下のKrea2中心の詳細説明にはv0.1由来の記述が残っています。共通仕様は
 [実装契約](docs/MULTI_ADAPTER_IMPLEMENTATION.md)と[検証記録](docs/VALIDATION_MULTI_ADAPTER.md)です。Klein・ZIT・Ernie固有仕様は `docs/KLEIN_IMPLEMENTATION.md`、`docs/ZIMAGE_IMPLEMENTATION.md`、`docs/ERNIE_IMPLEMENTATION.md` を参照してください。
@@ -136,7 +136,7 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 
 ## English
 
-### v0.4.0 summary
+### v0.4.1 summary
 
 - Adapters: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**.
 - Adapter selection can be `Auto` or manual.
