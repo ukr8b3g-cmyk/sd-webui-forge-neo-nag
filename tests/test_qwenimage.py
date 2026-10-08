@@ -241,3 +241,101 @@ def test_encode_negative_native_qwen():
     assert got.shape==(1,4,12) and p.sd_model.negative_calls==1
     p.sd_model.text_processing_engine_qwen.tokenize=lambda t:list(range(2049))
     with pytest.raises(NAGError,match='2048'):encode_negative(p,a.config,binding)
+
+
+def test_qwen_engine_auto_is_not_qwen21():
+    from forge_neo_nag.registry import choose_adapter
+    native = type("QwenImage", (), {"__module__": "backend.diffusion_engine.qwen"})()
+    other = type("QwenImage21", (), {"__module__": "backend.diffusion_engine.qwen21"})()
+    assert choose_adapter(native, "auto", preset="qwen21") == "qwenimage"
+    with pytest.raises(NAGError, match="manually"):
+        choose_adapter(other, "auto", preset="qwen")
+
+
+def _processing_for_host(batch=1):
+    from forge_neo_nag.host import HostBindings
+    from .helpers import Conditioning, Patcher, Runner, TinyKModel
+
+    class Engine:
+        def __init__(self):
+            self.forge_objects = SimpleNamespace(
+                unet=Patcher(TinyKModel(TinyQwenImage().eval())),
+                clip=SimpleNamespace(patcher=SimpleNamespace(patches_uuid=None)),
+            )
+            self.text_processing_engine_qwen = SimpleNamespace(
+                tokenize=lambda text: list(range(12))
+            )
+        def get_learned_conditioning(self, prompt):
+            assert prompt.is_negative_prompt
+            return [torch.randn(7, 12)]
+
+    class Processing:
+        def __init__(self):
+            self.sd_model = Engine()
+            self.base = self.sd_model.forge_objects.unet
+            self.cfg_scale = 5.0
+            self.width = self.height = 128
+            self.enable_hr = self.is_hr_pass = self.txt2img_upscale = self.tiling = False
+            self.refiner_checkpoint = None
+            self.sampler_name = "Euler"
+            self.prompt = "portrait"
+            self.all_prompts = [self.prompt]
+            self.extra_generation_params = {}
+            self.scripts = Runner()
+            self.x = torch.randn(batch, 4, 1, 5, 7)
+            self.context = torch.randn(batch, 5, 12)
+            self.uncond = torch.randn(batch, 5, 12)
+
+    p = Processing()
+    dynamic = SimpleNamespace(ref_latents=[], context_handler=None, edit=False)
+    bindings = HostBindings(Engine, TinyQwenImage, TinyKModel, Processing,
+                            Conditioning, dynamic, OPS, "qwenimage",
+                            (QwenImageTransformerBlock, Attention))
+    return p, bindings
+
+
+@pytest.mark.parametrize("labels", [[0, 1], [1, 0]])
+@pytest.mark.parametrize("batch", [1, 2])
+def test_qwen_host_preserves_native_unconditional_and_cfg(labels, batch):
+    from forge_neo_nag.host import SamplingSession, validate_request
+    p, bindings = _processing_for_host(batch=batch)
+    validate_request(p, bindings)
+    cfg = NAGConfig.parse(True, "glasses", 2., 2.5, .25, 1000, 0, "qwenimage")
+    session = SamplingSession(p, cfg, bindings, torch.randn(1, 7, 12))
+    session.install(p, x=p.x)
+    x = torch.cat((p.x, p.x))
+    contexts = torch.cat([
+        p.context if label == 0 else p.uncond for label in labels
+    ])
+    sigma = torch.ones(x.shape[0]) * .5
+    uncond_label = labels.index(1)
+    rows = slice(uncond_label * batch, (uncond_label + 1) * batch)
+    native = p.base.model.apply_model(
+        x[rows], sigma[rows], c_crossattn=contexts[rows],
+        transformer_options={"cond_or_uncond": [1]}
+    )
+    payload = {
+        "input": x, "timestep": sigma,
+        "c": {"c_crossattn": contexts,
+              "transformer_options": {"cond_or_uncond": labels}},
+        "cond_or_uncond": labels,
+    }
+    try:
+        got = session.wrapper(p.base.model.apply_model, payload)
+        torch.testing.assert_close(got[rows], native, atol=0, rtol=0)
+        assert session.wrapper.active_calls == 1
+    finally:
+        session.close()
+    assert p.sd_model.forge_objects.unet is p.base
+
+
+def test_qwen_reference_and_edit_fail_closed_at_preflight():
+    from forge_neo_nag.host import validate_request
+    p, bindings = _processing_for_host()
+    bindings.dynamic_args.edit = True
+    with pytest.raises(NAGError, match="Edit-2511"):
+        validate_request(p, bindings)
+    bindings.dynamic_args.edit = False
+    bindings.dynamic_args.ref_latents = [torch.randn(1, 4, 1, 4, 6)]
+    with pytest.raises(NAGError, match="Reference"):
+        validate_request(p, bindings)
