@@ -1,3 +1,4 @@
-"""Model-specific integrations; V1 intentionally registers only Krea2."""
+"""Supported integration labels; engine routing is owned by registry.py."""
 
-SUPPORTED_MODELS = ("Krea2",)
+SUPPORTED_MODELS = ("Krea2", "Anima", "SDXL / Illustrious", "Klein / Flux.2",
+                    "Z-Image Turbo", "Ernie Image")

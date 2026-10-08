@@ -23,9 +23,17 @@ def main_stream_worker(*args):
 
 
 def rms_rope_split_half(q, k, rotary, q_scale, k_scale, eps):
-    q = F.rms_norm(q, (q.shape[-1],), weight=q_scale, eps=eps)
-    k = F.rms_norm(k, (k.shape[-1],), weight=k_scale, eps=eps)
-    return q + rotary.to(q), k + rotary.to(k)
+    # Comfy-Kitchen CPU eager split-half RMSNorm + 2x2 RoPE.
+    def rotate(x, weight):
+        norm = F.rms_norm(x, (x.shape[-1],), weight=weight, eps=eps)
+        first, second = norm.float().chunk(2, dim=-1)
+        rot = rotary.float()
+        out = torch.cat((
+            rot[..., 0, 0] * first + rot[..., 0, 1] * second,
+            rot[..., 1, 0] * first + rot[..., 1, 1] * second,
+        ), dim=-1)
+        return out.to(x.dtype)
+    return rotate(q, q_scale), rotate(k, k_scale)
 
 
 def attention(q, k, v, heads, mask=None, **kwargs):
@@ -50,8 +58,25 @@ OPS = SimpleNamespace(
 class ErnieImageEmbedND3(nn.Module):
     def __init__(self, dim=8, axes=(2,2,4)):
         super().__init__(); self.dim=dim; self.axes_dim=list(axes)
+        self.theta=256
     def forward(self, ids):
-        return (ids.sum(-1, keepdim=True).unsqueeze(-1) * 0.001)
+        # Mirror Forge backend.nn.ernie.ErnieImageEmbedND3's split-half matrix.
+        cosines, sines = [], []
+        for axis, width in enumerate(self.axes_dim):
+            indices = torch.arange(0, width, 2, dtype=torch.float64, device=ids.device)
+            freq = 1.0 / (self.theta ** (indices / width))
+            angles = ids[..., axis].to(torch.float64).unsqueeze(-1) * freq
+            cosines.append(angles.cos())
+            sines.append(angles.sin())
+        cos = torch.cat(cosines, -1).float()
+        sin = torch.cat(sines, -1).float()
+        half = cos.shape[-1] // 2
+        cos_top = cos[..., :half].repeat_interleave(2, dim=-1)
+        sin_top = sin[..., :half].repeat_interleave(2, dim=-1)
+        cos_bottom = cos[..., half:].repeat_interleave(2, dim=-1)
+        sin_bottom = sin[..., half:].repeat_interleave(2, dim=-1)
+        rotary = torch.stack((cos_top, -sin_top, sin_bottom, cos_bottom), dim=-1)
+        return rotary.reshape(*rotary.shape[:-1], 2, 2).unsqueeze(2)
 
 
 class ErnieImagePatchEmbedDynamic(nn.Module):
@@ -247,3 +272,63 @@ def test_ernie_rejects_late_block_forward_patch_after_session_install():
     finally:
         del block.forward
         s.close()
+
+@pytest.mark.parametrize("target", ["block_forward", "attention_forward", "block_class", "attention_class"])
+def test_ernie_late_native_patches_fail_closed(target, monkeypatch):
+    p = Processing()
+    session = SamplingSession(p, NAGConfig.parse(True, "glasses", adapter="ernie"),
+                              p.bindings, torch.randn(1, 7, 12))
+    session.install(p, x=p.x)
+    block = p.base.model.diffusion_model.layers[0]
+    attention_module = block.self_attention
+    foreign = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("foreign patch"))
+    if target == "block_forward":
+        monkeypatch.setattr(block, "forward", foreign)
+    elif target == "attention_forward":
+        monkeypatch.setattr(attention_module, "forward", foreign)
+    elif target == "block_class":
+        monkeypatch.setattr(type(block), "forward", foreign)
+    else:
+        monkeypatch.setattr(type(attention_module), "forward", foreign)
+    payload = dict(input=p.x, timestep=torch.ones(p.x.shape[0]) * .5,
+                   c={"c_crossattn": p.context,
+                      "transformer_options": {"cond_or_uncond": [0]}},
+                   cond_or_uncond=[0])
+    try:
+        with pytest.raises(NAGError, match="patched|changed"):
+            session.wrapper(p.base.model.apply_model, payload)
+    finally:
+        session.close()
+    assert p.sd_model.forge_objects.unet is p.base
+
+
+def test_ernie_rotary_is_matrix_and_rotates_nonzero_positions():
+    embed = ErnieImageEmbedND3()
+    ids = torch.zeros(2, 5, 3)
+    ids[:, :, 0] = torch.arange(5).float()
+    ids[:, :, 1] = 2
+    freqs = embed(ids)
+    assert freqs.shape == (2, 5, 1, 4, 2, 2)
+    q = torch.randn(2, 5, 4, 8)
+    weight = torch.ones(8)
+    rotated, _ = rms_rope_split_half(q, q, freqs, weight, weight, 1e-6)
+    norm = F.rms_norm(q, (8,), weight=weight, eps=1e-6)
+    assert not torch.allclose(rotated[:, 1:], norm[:, 1:])
+
+
+def test_ernie_image_qkv_equal_in_actual_attention_inputs():
+    p = Processing()
+    records = []
+    def observe(q, k, v, heads, mask=None, **kwargs):
+        records.append((q.detach().clone(), k.detach().clone(), v.detach().clone()))
+        return attention(q, k, v, heads, mask=mask, **kwargs)
+    spy_ops = SimpleNamespace(**{**vars(OPS), "attention": observe})
+    a = ErnieAdapter(p.base.model.diffusion_model, torch.randn(1, 7, 12),
+                     NAGConfig.parse(True, "glasses", 2., 2.5, .25, 1000, 0, "ernie"),
+                     spy_ops, p.bindings.layout_types)
+    a(p.x, torch.ones(1) * .5, p.context)
+    image_count = p.x.shape[-2] * p.x.shape[-1]
+    assert len(records) == 2 * len(p.base.model.diffusion_model.layers)
+    for pos, neg in zip(records[::2], records[1::2]):
+        for pqkv, nqkv in zip(pos, neg):
+            assert torch.equal(pqkv[:, :image_count], nqkv[:, :image_count])

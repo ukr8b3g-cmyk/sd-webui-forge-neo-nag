@@ -25,12 +25,12 @@
 - `txt2img / 参照画像なし`が現在の共通対応範囲です。Hires fix、img2img、Refiner、ControlNet、CFG++などは対象外です。
 - ZIT/Ernie対応に加え、Forge Sparse Attentionの`optimized_attention_override`競合を事前/実行時に拒否し、手動Adapterの保存・復元を安定した内部IDへ統一しました。ZIT/Ernieの実モデルGPU、FP8、実LoRA、画質、速度、VRAMは未確認です。
 
-以下のKrea2中心の詳細説明にはv0.1由来の記述が残っています。共通仕様は
-[実装契約](docs/MULTI_ADAPTER_IMPLEMENTATION.md)と[検証記録](docs/VALIDATION_MULTI_ADAPTER.md)です。Klein・ZIT・Ernie固有仕様は `docs/KLEIN_IMPLEMENTATION.md`、`docs/ZIMAGE_IMPLEMENTATION.md`、`docs/ERNIE_IMPLEMENTATION.md` を参照してください。
+共通仕様は[実装契約](docs/MULTI_ADAPTER_IMPLEMENTATION.md)と[検証記録](docs/VALIDATION_MULTI_ADAPTER.md)です。
+モデル固有の実装はKlein、Z-Image、Ernieの各文書を参照してください。
 
 ### 何ができるか
 
-CFGを **1.0のまま** にして、Krea2のAttention内部へNAGによるNegative条件を追加します。
+CFGを変更せずに、読み込み中の対応モデルのAttention内部へ独立したNAG Negative条件を追加します。
 標準の「Negative Prompt」とは別に、**NAG Negative Prompt専用入力欄**を追加します。
 標準Negative欄のグレーアウト、通常CFG、他モデルの生成処理は変更しません。
 
@@ -45,7 +45,7 @@ L1正規化して混合します。画像の状態は1本のまま、Positiveと
 
 ### インストール
 
-Krea2が通常生成できているForge Neoを前提にします。追加モデルや追加の実行時依存関係を
+使用するモデルが通常生成できているForge Neoを前提にします。追加モデルや追加の実行時依存関係を
 この拡張からインストールすることはありません。
 
 ZIPを展開し、次の配置になるようにForge Neoの`extensions`へ入れてください。
@@ -70,13 +70,12 @@ ComfyUIの`custom_nodes`には入れません。Forge本体のファイルを上
 
 ### 基本操作
 
-1. txt2imgでKrea2を選択し、通常のPositive Promptを入力します。CFGを`1.0`にします。
-2. `Forge Neo NAG — Krea2`を開き、`Enable NAG / NAGを有効化`をONにします。
-3. **NAG Negative Prompt**へ抑制したい対象を入力して生成します。まずは`big wings`や
-   `sunglasses`のように、結果を見分けやすい短い対象から比較してください。
+1. txt2imgで対応モデルを読み込み、通常のPositive Promptと自分のCFG値を設定します。
+2. `Forge Neo NAG`を開き、`Adapter=Auto`または互換性のあるモデルを手動選択します。
+3. `Enable NAG / NAGを有効化`をONにして、**NAG Negative Prompt**へ抑制対象を入力します。まずは`big wings`や`sunglasses`などで比較してください。
 
-サンプラー・ステップ・解像度・モデル・LoRAは、まず手元で動いているKrea2設定を維持してください。
-NAG用のLoRAタグや追加エンコーダは不要です。使用中のKrea2用Qwen3-VLエンコーダを再利用します。
+サンプラー・ステップ・解像度・CFG・モデル・LoRAは、通常生成できる設定を維持してください。
+NAG用の追加Text Encoderは不要です。各モデルの既存Text Encoderを再利用します。
 LoRAタグは通常のPositive Promptへ指定し、NAG欄へは入れません。
 
 各項目にマウスを置くと説明を表示します。ラベルと補助説明はUI作成時のForgeの言語設定に従い、
@@ -86,6 +85,7 @@ LoRAタグは通常のPositive Promptへ指定し、NAG欄へは入れません�
 | 項目 | 初期値 | 内容 |
 |---|---:|---|
 | Enable NAG | OFF | 有効化。OFFではNegativeの追加エンコードも行いません。 |
+| Adapter | Auto | 読み込まれたEngineからAuto判定。手動選択可。Forge Presetは変更しません。 |
 | NAG Negative Prompt | 空欄 | 抑制対象の通常テキスト。標準Negative欄とは独立です。 |
 | NAG Scale / Phi | 4.0 | Attention差分を強める係数。0でバイパスします。 |
 | Norm Cap / Tau | 2.5 | 正規化時のL1ノルム上限比率です。CFGとは別の値です。 |
@@ -100,7 +100,7 @@ NAG成功として保存せずエラーにします。空欄・Phi=0・Alpha=0�
 
 ### V1の範囲
 
-実装対象は**Krea2 / txt2img / CFG=1 / 参照画像なし**です。同じNAG Negativeをバッチ内の全画像へ適用します。
+共通初期対応は**Krea2 / Anima / SDXL / Klein / Z-Image / Ernieのtxt2img（参照画像なし）**です。CFGはユーザーが設定し、通常CFGの合成はForge側で行います。
 通常の静的LoRAとForge既存の量子化Linear層を再利用する構造ですが、**実GPUでのFP8・量子化・LoRAの
 組合せ試験は未実施**です。コード対応と実機確認済みを区別してください。
 
@@ -109,7 +109,7 @@ Token merging、torch.compileされたKrea2、他のAttention/Guidanceパッチ�
 有効なNAG要求で検出した場合、設定を勝手に変えたり、NAGを無視して通常画像を返したりせず停止します。
 
 NAG欄は通常テキスト専用です。重み構文・プロンプトスケジュール・`AND`・`BREAK`・LoRAタグには対応しません。
-既知の非対応構文はエラーにし、黙って解釈を変えません。最大32768文字かつテンプレート込み2048トークンです。
+既知の非対応構文はエラーにし、黙って解釈を変えません。最大32768文字です。トークン上限はモデル別です（SDXLはCLIP最大4チャンク、Animaは各Tokenizer最大2048、Krea2/Klein/ZIT/Ernieは最大2048）。
 上限を超えても切り捨てずエラーにします。標準プロンプトのStyleやWildcardをNAG欄へ自動適用しません。
 
 ### 最適化と再現性
@@ -145,12 +145,12 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 - Current common scope: `txt2img`, no reference images. Hires fix, img2img, Refiner, ControlNet and CFG++ remain unsupported.
 - ZIT uses Hybrid RoPE and the native `adaln_input` refiner-time contract; Ernie uses its native Ministral3 conditioning and joint-attention path. Pretrained-model GPU behavior, FP8, real LoRA combinations, image quality, speed and VRAM remain unverified.
 
-Some Krea2-focused detail below is retained from v0.1. The common contract is
+The following instructions describe all six adapters; model-specific details are documented separately. The common contract is
 [Multi-adapter implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md), with model-specific details in the Klein, Z-Image and Ernie implementation documents under `docs/`.
 
 ### Purpose
 
-Keep **CFG at 1.0** and add negative guidance inside Krea2 attention through a dedicated
+Keep **your chosen CFG value** and add guidance inside supported models' attention through a separate
 **NAG Negative Prompt** box. The ordinary negative prompt, its greyed-out state,
 standard CFG, and ordinary generation with NAG disabled remain unchanged.
 
@@ -166,27 +166,28 @@ a particular setup as validated.
 
 ### Installation and use
 
-Start with Forge Neo already able to generate Krea2 images normally. Extract this
+Start with Forge Neo already able to generate images with the selected supported model. Extract this
 extension into `extensions/sd-webui-forge-neo-nag/`, or clone the published repository
 there using the command above. Restart the WebUI process. Do not place it in
 ComfyUI's `custom_nodes`, and do not overwrite Forge's source files.
 
 No additional runtime packages or model weights are installed by this extension.
-It uses Forge's existing Krea2 Qwen3-VL text encoder, loaded layers and attention backend.
+It reuses the loaded model's existing text encoder, layers and native attention backend.
 
-Select Krea2 in **txt2img**, set **CFG=1.0**, open **Forge Neo NAG — Krea2**, enable NAG,
-and enter a short unwanted concept in **NAG Negative Prompt**. Start with the defaults
+Select a supported model in **txt2img**, keep your chosen CFG, open **Forge Neo NAG**,
+select **Auto** or a compatible adapter, enable NAG and enter an unwanted concept in **NAG Negative Prompt**. Start with the defaults
 `Phi=4.0`, `Tau=2.5`, `Alpha=0.25`. Keep your otherwise-working model, LoRA, sampler,
 step count and resolution unchanged for the first comparison. Put LoRA tags in the
 ordinary positive prompt, not in the NAG field.
 
-All seven controls have explanatory text and mouse-over help. Japanese Forge
+All eight controls have explanatory text and mouse-over help. Japanese Forge
 localization selects Japanese labels/help; otherwise English is used. Reload the UI
 after changing localization. The script's API name and metadata keys remain English.
 
 | Control | Default | Meaning |
 |---|---:|---|
 | Enable NAG | OFF | OFF does not add negative encoding or model patches. |
+| Adapter | Auto | Uses the loaded engine; manual override never changes Forge presets. |
 | NAG Negative Prompt | Empty | Plain text describing what to suppress; separate from the standard box. |
 | Phi | 4.0 | Attention extrapolation strength; zero bypasses NAG. |
 | Tau | 2.5 | Relative L1 norm cap before blending, not CFG. |
@@ -201,7 +202,7 @@ path; enabled-but-bypassed requests are explicitly recorded as `bypassed`.
 
 ### V1 support and limits
 
-V1 implements **native Krea2, txt2img, CFG=1, no reference images**. A batch shares one
+Initial common support covers **Krea2 / Anima / SDXL / Klein / Z-Image / Ernie, txt2img, no reference images**, with user-controlled CFG. A batch shares one
 NAG negative prompt. Static LoRA and native quantized Linear modules are reused,
 not replaced. **GPU combinations involving FP8, quantization and LoRA have not yet
 been tested.** Structural compatibility is not a claim of verified GPU operation.
@@ -212,8 +213,7 @@ supported by V1. Detected incompatible active requests stop; settings are not si
 changed, and ordinary generation is not silently substituted for requested NAG.
 
 The NAG box accepts plain text only. Known weights, schedules, `AND`, `BREAK` and LoRA
-tags are rejected. Limits are 32768 characters and 2048 tokens including the encoder
-template. Input is never silently truncated. Styles/wildcards from standard prompts
+tags are rejected. The limit is 32768 characters, with model-specific token limits (SDXL: up to four CLIP chunks; Anima: 2048 per tokenizer; Krea2/Klein/ZIT/Ernie: up to 2048). Input is never silently truncated. Styles/wildcards from standard prompts
 are not automatically applied to this independent field.
 
 ### Optimization, state and metadata
@@ -239,9 +239,9 @@ errors and interruption. See [implementation details](docs/IMPLEMENTATION.md).
 
 ### API example
 
-Use your existing working Krea2 API payload, keeping its model/precision/LoRA choices.
+Use your existing working API payload for a supported model, keeping its model/precision/LoRA choices.
 The always-on script name is `Forge Neo NAG`, regardless of UI language.
-Argument order is **enabled, negative, phi, tau, alpha, sigma_start, sigma_end**.
+Argument order is **enabled, negative, phi, tau, alpha, sigma_start, sigma_end**, followed by an optional eighth adapter ID (default `auto`).
 
 ```json
 {
@@ -263,7 +263,7 @@ Argument order is **enabled, negative, phi, tau, alpha, sigma_start, sigma_end**
 ```
 
 The illustrative sampling settings are not a performance recommendation; retain the
-settings that already work with your Krea2 model. For problems, report the Forge
+settings that already work with your selected supported model. For problems, report the Forge
 commit, model/precision, LoRA, attention backend, resolution, batch size, generation
 metadata and full console error. Disable NAG to return to ordinary generation.
 

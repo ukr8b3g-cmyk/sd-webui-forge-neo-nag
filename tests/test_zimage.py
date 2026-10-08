@@ -23,11 +23,16 @@ def attention(q, k, v, heads, mask=None, skip_reshape=False, transformer_options
 
 
 def rms_rope(q, k, rope, qw, kw, eps):
+    # Comfy-Kitchen eager rms_rope uses interleaved pairs, not split-half.
     def rotate(x, weight):
-        y = F.rms_norm(x, (x.shape[-1],), weight=weight, eps=eps).float()
-        pair = torch.stack(y.chunk(2, dim=-1), dim=-1).unsqueeze(-1)
-        result = (rope @ pair).squeeze(-1)
-        return torch.cat((result[..., 0], result[..., 1]), dim=-1).to(x.dtype)
+        norm = F.rms_norm(x, (x.shape[-1],), weight=weight, eps=eps).float()
+        even, odd = norm[..., 0::2], norm[..., 1::2]
+        rot = rope.float()
+        output = torch.stack((
+            rot[..., 0, 0] * even + rot[..., 0, 1] * odd,
+            rot[..., 1, 0] * even + rot[..., 1, 1] * odd,
+        ), dim=-1).flatten(-2)
+        return output.to(x.dtype)
     return rotate(q, qw), rotate(k, kw)
 
 
@@ -335,3 +340,68 @@ def test_zimage_rejects_late_block_forward_patch_after_session_install():
     finally:
         del block.forward
         s.close()
+
+@pytest.mark.parametrize("target", ["block_forward", "attention_forward", "block_class", "attention_class"])
+def test_zimage_late_native_patches_fail_closed(target, monkeypatch):
+    p = Processing()
+    session = SamplingSession(p, NAGConfig.parse(True, "glasses", adapter="zimage"),
+                              p.bindings, torch.randn(1, 7, 12))
+    session.install(p, x=p.x)
+    block = p.base.model.diffusion_model.layers[0]
+    attention_module = block.attention
+    foreign = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("foreign patch"))
+    if target == "block_forward":
+        monkeypatch.setattr(block, "forward", foreign)
+    elif target == "attention_forward":
+        monkeypatch.setattr(attention_module, "forward", foreign)
+    elif target == "block_class":
+        monkeypatch.setattr(type(block), "forward", foreign)
+    else:
+        monkeypatch.setattr(type(attention_module), "forward", foreign)
+    payload = dict(input=p.x, timestep=torch.ones(p.x.shape[0]) * .5,
+                   c={"c_crossattn": p.context,
+                      "transformer_options": {"cond_or_uncond": [0]}},
+                   cond_or_uncond=[0])
+    try:
+        with pytest.raises(NAGError, match="patched|changed"):
+            session.wrapper(p.base.model.apply_model, payload)
+    finally:
+        session.close()
+    assert p.sd_model.forge_objects.unet is p.base
+
+
+def test_zimage_eager_rope_rotates_interleaved_pairs():
+    q = torch.tensor([[[[1., 2., 3., 4., 5., 6., 7., 8.]]]])
+    angles = torch.tensor([0.2, 0.4, 0.6, 0.8])
+    c, sn = angles.cos(), angles.sin()
+    rotation = torch.stack((c, -sn, sn, c), dim=-1).reshape(1, 1, 1, 4, 2, 2)
+    ones = torch.ones(8)
+    got, _ = rms_rope(q, q, rotation, ones, ones, 1e-6)
+    norm = F.rms_norm(q, (8,), weight=ones, eps=1e-6)
+    expected = torch.stack((c*norm[..., 0::2]-sn*norm[..., 1::2],
+                            sn*norm[..., 0::2]+c*norm[..., 1::2]), -1).flatten(-2)
+    torch.testing.assert_close(got, expected)
+    split_half = torch.cat((c*norm[..., :4]-sn*norm[..., 4:],
+                            sn*norm[..., :4]+c*norm[..., 4:]), -1)
+    assert not torch.allclose(got, split_half)
+
+
+def test_zimage_image_qkv_equal_in_actual_attention_inputs():
+    p = Processing()
+    records = []
+    def observe(q, k, v, heads, mask=None, skip_reshape=False, transformer_options=None):
+        records.append((q.detach().clone(), k.detach().clone(), v.detach().clone()))
+        return attention(q, k, v, heads, mask=mask, skip_reshape=skip_reshape,
+                         transformer_options=transformer_options)
+    spy_ops = SimpleNamespace(**{**vars(OPS), "attention": observe})
+    a = ZImageAdapter(p.base.model.diffusion_model, torch.randn(1, 7, 12),
+                      NAGConfig.parse(True, "glasses", 2., 2.5, .25, 1000, 0, "zimage"),
+                      spy_ops, p.bindings.layout_types)
+    a(p.x, torch.ones(1) * .5, p.context)
+    model = p.base.model.diffusion_model
+    positive_len = p.context.shape[1] + (-p.context.shape[1]) % model.pad_tokens_multiple
+    negative_len = 7 + (-7) % model.pad_tokens_multiple
+    assert len(records) == 2 * len(model.layers)
+    for pos, neg in zip(records[::2], records[1::2]):
+        for pqkv, nqkv in zip(pos, neg):
+            assert torch.equal(pqkv[:, :, positive_len:], nqkv[:, :, negative_len:])
