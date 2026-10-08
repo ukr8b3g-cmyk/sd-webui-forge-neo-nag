@@ -132,8 +132,17 @@ class ZImageAdapter:
         self.negative_context = negative_context
         self.config = config
         self.ops = ops
+        self.layout_types = layout_types
         self.context_width = validate_model(model, layout_types)
         self.targets = tuple(range(len(model.layers)))
+        self._runtime_groups = (
+            tuple(model.context_refiner), tuple(model.noise_refiner), tuple(model.layers)
+        )
+        self._runtime_attentions = tuple(
+            block.attention for group in self._runtime_groups for block in group
+        )
+        self._block_forward = layout_types[0].forward
+        self._attention_forward = layout_types[1].forward
         self.attention_calls = 0
         self._seen = {}
         self.last_positive_image_pe = None
@@ -144,6 +153,26 @@ class ZImageAdapter:
 
     def __deepcopy__(self, memo):
         return self
+
+    def _validate_runtime_contract(self):
+        current_groups = (
+            tuple(self.model.context_refiner), tuple(self.model.noise_refiner),
+            tuple(self.model.layers),
+        )
+        if (any(len(current) != len(expected)
+                or any(a is not b for a, b in zip(current, expected))
+                for current, expected in zip(current_groups, self._runtime_groups))
+                or any(block.attention is not expected for block, expected in zip(
+                    (block for group in current_groups for block in group),
+                    self._runtime_attentions,
+                ))):
+            raise NAGError("Z-Image block/attention objects changed after NAG setup; generation rejected.")
+        if (self.layout_types[0].forward is not self._block_forward
+                or self.layout_types[1].forward is not self._attention_forward):
+            raise NAGError("Z-Image block/attention implementation changed after NAG setup; generation rejected.")
+        width = validate_model(self.model, self.layout_types)
+        if width != self.context_width:
+            raise NAGError("Z-Image text-conditioning layout changed after NAG setup; generation rejected.")
 
     def _negative_for(self, context):
         if self.negative_context is None:
@@ -237,6 +266,7 @@ class ZImageAdapter:
     @torch.inference_mode()
     def __call__(self, x, timesteps, context, num_tokens=None, attention_mask=None,
                  transformer_options=None, control=None, **kwargs):
+        self._validate_runtime_contract()
         if control is not None:
             raise NAGError("Z-Image NAG does not support ControlNet.")
         if attention_mask is not None:
@@ -247,7 +277,8 @@ class ZImageAdapter:
                 or context.shape[-1] != self.context_width):
             raise NAGError("Unexpected Z-Image image/context shape.")
         options = dict(transformer_options or {})
-        for key in ("patches", "patches_replace", "block_modifiers", "block_inner_modifiers", "attention_override"):
+        for key in ("patches", "patches_replace", "block_modifiers", "block_inner_modifiers",
+                    "attention_override", "optimized_attention_override"):
             if options.get(key):
                 raise NAGError("Z-Image NAG cannot combine with existing transformer patches.")
 

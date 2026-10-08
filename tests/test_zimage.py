@@ -309,3 +309,29 @@ def test_zimage_rejects_positive_and_reference_patch_mask_and_nunchaku_shape():
     class ForeignAttention(JointAttention): pass
     p.base.model.diffusion_model.layers[0].attention=ForeignAttention()
     with pytest.raises(NAGError,match='native JointAttention'): validate_model(p.base.model.diffusion_model,p.bindings.layout_types)
+
+
+def test_zimage_rejects_late_block_forward_patch_after_session_install():
+    p=Processing()
+    cfg=NAGConfig.parse(True,'glasses',2,2.5,.25,1000,0,'zimage')
+    s=SamplingSession(p,cfg,p.bindings,torch.randn(1,7,12))
+    s.install(p,x=p.x)
+    block=p.base.model.diffusion_model.layers[0]
+    block.forward=lambda *args,**kwargs: (_ for _ in ()).throw(
+        RuntimeError('foreign extension block forward')
+    )
+    payload={
+        'input':p.x.clone(),
+        'timestep':torch.ones(1)*.5,
+        'c':{
+            'c_crossattn':p.context.clone(),
+            'transformer_options':{'cond_or_uncond':[0]},
+        },
+        'cond_or_uncond':[0],
+    }
+    try:
+        with pytest.raises(NAGError,match='patched|changed after NAG setup'):
+            s.wrapper(p.base.model.apply_model,payload)
+    finally:
+        del block.forward
+        s.close()

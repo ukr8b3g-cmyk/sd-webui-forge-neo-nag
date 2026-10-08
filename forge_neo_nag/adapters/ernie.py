@@ -145,8 +145,13 @@ class ErnieAdapter:
         self.negative_context = negative_context
         self.config = config
         self.ops = ops
+        self.layout_types = layout_types
         self.context_width = validate_model(model, layout_types)
         self.targets = tuple(range(len(model.layers)))
+        self._runtime_blocks = tuple(model.layers)
+        self._runtime_attentions = tuple(block.self_attention for block in model.layers)
+        self._block_forward = layout_types[0].forward
+        self._attention_forward = layout_types[1].forward
         self.attention_calls = 0
         self._seen = {}
         self._negative_text = None
@@ -163,6 +168,20 @@ class ErnieAdapter:
 
     def __deepcopy__(self, memo):
         return self
+
+    def _validate_runtime_contract(self):
+        current = tuple(self.model.layers)
+        if (len(current) != len(self._runtime_blocks)
+                or any(a is not b for a, b in zip(current, self._runtime_blocks))
+                or any(block.self_attention is not expected
+                       for block, expected in zip(current, self._runtime_attentions))):
+            raise NAGError("Ernie block/attention objects changed after NAG setup; generation rejected.")
+        if (self.layout_types[0].forward is not self._block_forward
+                or self.layout_types[1].forward is not self._attention_forward):
+            raise NAGError("Ernie block/attention implementation changed after NAG setup; generation rejected.")
+        width = validate_model(self.model, self.layout_types)
+        if width != self.context_width:
+            raise NAGError("Ernie text-conditioning layout changed after NAG setup; generation rejected.")
 
     def _negative_for(self, context):
         if self.negative_context is None:
@@ -261,11 +280,13 @@ class ErnieAdapter:
 
     @torch.inference_mode()
     def __call__(self, x, timesteps, context, control=None, transformer_options=None, **kwargs):
+        self._validate_runtime_contract()
         if control is not None:
             raise NAGError("Ernie NAG does not support ControlNet.")
         options = transformer_options or {}
         for key in ("patches", "patches_replace", "block_modifiers",
-                    "block_inner_modifiers", "attention_override"):
+                    "block_inner_modifiers", "attention_override",
+                    "optimized_attention_override"):
             if options.get(key):
                 raise NAGError("Ernie NAG cannot combine with existing transformer patches.")
         if any(value is not None for value in kwargs.values()):
