@@ -7,16 +7,16 @@
 
 [日本語](#日本語) · [English](#english) · [Download / ダウンロード](https://github.com/ukr8b3g-cmyk/sd-webui-forge-neo-nag/releases) · [Validation / 検証](docs/VALIDATION_MULTI_ADAPTER.md) · [Implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md)
 
-> **v0.4.1 — maintenance release for Sparse Attention conflict detection and manual Adapter restore.**
+> **v0.4.2 — adds late Z-Image/Ernie mutation guards, real RoPE regression fixtures and updated multi-adapter instructions.**
 > ZIT includes the native `adaln_input` refiner-time contract fix. Pretrained-model GPU validation for ZIT/Ernie is still pending.
 > This is a Forge Neo WebUI **extension**, not a ComfyUI custom node.
 > NAG does not rewrite Forge presets, CFG, sampler, scheduler, steps, resolution, Clip skip, LoRA, or the standard Negative Prompt.
 >
-> **Current v0.4.1 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image`. Sparse Attention overrides are rejected while NAG is active, and saved manual Adapter selections restore to their stable internal IDs.
+> **Current v0.4.2 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image`. Sparse Attention overrides are rejected while NAG is active, and saved manual Adapter selections restore to their stable internal IDs.
 
 ## 日本語
 
-### v0.4.1 の要点
+### v0.4.2 の要点
 
 - 対応アダプター: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**。
 - アダプターは`Auto`または手動選択。Presetと一致しない場合もユーザーが自分で修正できます。
@@ -136,7 +136,7 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 
 ## English
 
-### v0.4.1 summary
+### v0.4.2 summary
 
 - Adapters: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image**.
 - Adapter selection can be `Auto` or manual.

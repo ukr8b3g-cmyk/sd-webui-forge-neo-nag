@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 — 2026-10-08
+
+- Release the post-install Z-Image / Ernie Block/Attention mutation guard already committed to main (F01).
+- Replace reduced CPU RoPE test doubles with native-style Ernie split-half and Z-Image interleaved rotations (F02).
+- Add attention-input image Q/K/V sharing checks and late-mutation regression cases (F02).
+- Correct bilingual README multi-adapter, CFG and eight-control usage text, plus stale supported-model labels (F03).
+- No model weights, guidance math, preset, sampler or CFG ownership changes.
+- Full pytest rerun and pretrained-model GPU validation remain pending.
+
 ## 0.4.1 — 2026-10-08
 
 - Reject Forge Sparse Attention's `optimized_attention_override` before and during NAG sampling.
