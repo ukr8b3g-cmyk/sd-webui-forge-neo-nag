@@ -11,7 +11,7 @@ from PIL import Image, PngImagePlugin
 
 from forge_neo_nag.config import NAGConfig
 from forge_neo_nag.ui import build_ui, tooltip_metadata, language, STRINGS, FIELDS, DEFAULTS
-from forge_neo_nag.registry import ADAPTER_CHOICES
+from forge_neo_nag.registry import ADAPTER_CHOICES, normalize_choice
 
 
 @pytest.mark.parametrize("name,expected", [("None","en"),("en_US","en"),("ja_JP","ja"),("ja_JP.json","ja"),
@@ -92,5 +92,6 @@ def test_adapter_infotext_restore_accepts_ids_and_display_names(locale):
         controls,fields=build_ui(gr,locale)
     restore=fields[-1][1]
     for label,internal in ADAPTER_CHOICES:
-        assert restore({"Forge NAG Adapter Selection":internal})==internal
-        assert restore({"Forge NAG Adapter Selection":label})==internal
+        assert restore({"Forge NAG Adapter Selection":internal})==label
+        assert restore({"Forge NAG Adapter Selection":label})==label
+        assert normalize_choice(restore({"Forge NAG Adapter Selection":internal}))==internal

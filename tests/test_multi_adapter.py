@@ -7,7 +7,7 @@ import pytest
 import torch
 
 from forge_neo_nag.config import NAGConfig, NAGError
-from forge_neo_nag.registry import choose_adapter, ENGINE_TYPES, ADAPTER_CHOICES
+from forge_neo_nag.registry import choose_adapter, ENGINE_TYPES, ADAPTER_CHOICES, adapter_display_name
 from forge_neo_nag.adapters.base import BranchLayout, validate_literal_text
 from forge_neo_nag.host import arm_request, SamplingSession, validate_request
 from forge_neo_nag.ui import build_ui, DEFAULTS
@@ -104,12 +104,12 @@ def test_ui_manual_selector_button_does_not_write_forge_controls():
     import gradio as gr
     with gr.Blocks() as demo:controls,fields=build_ui(gr,"ja_JP")
     assert len(controls)==8
-    assert controls[-1].value=="auto" and controls[-1].interactive is not False
-    assert [v for _,v in controls[-1].choices]==["auto","krea2","anima","sdxl","klein","zimage","ernie","qwenimage"]
+    assert controls[-1].value=="Auto" and controls[-1].interactive is not False
+    assert [value for _,value in controls[-1].choices]==[label for label,_ in ADAPTER_CHOICES]
     for selection in ("auto","sdxl","anima","krea2","klein","zimage","ernie","qwenimage"):
         params=NAGConfig.parse(True,"glasses",adapter=selection).metadata()
-        assert fields[-1][1](params)==selection
-    assert fields[-1][1]({})=="auto"
+        assert fields[-1][1](params)==adapter_display_name(selection)
+    assert fields[-1][1]({})=="Auto"
     config=demo.get_config_file()
     ids={c["id"]:c["props"].get("elem_id") for c in config["components"]}
     dependencies=[d for d in config["dependencies"] if d.get("outputs")]
@@ -127,7 +127,8 @@ def test_manual_adapter_display_name_restores_to_internal_id(locale,label,expect
     with gr.Blocks():
         controls,fields=build_ui(gr,locale)
     params={"Forge NAG Adapter Selection":label}
-    assert fields[-1][1](params)==expected
+    assert fields[-1][1](params)==label
+    assert NAGConfig.parse(True,"glasses",adapter=fields[-1][1](params)).adapter==expected
 
 
 @pytest.mark.parametrize("label,expected", [choice for choice in ADAPTER_CHOICES if choice[1] != "auto"])

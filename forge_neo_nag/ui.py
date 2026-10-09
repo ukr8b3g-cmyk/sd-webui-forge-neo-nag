@@ -7,7 +7,7 @@ import re
 
 PREFIX = "forge_neo_nag"
 FIELDS = ("enabled", "negative", "phi", "tau", "alpha", "sigma_start", "sigma_end", "adapter")
-DEFAULTS = (False, "", 4.0, 2.5, 0.25, 1000.0, 0.0, "auto")
+DEFAULTS = (False, "", 4.0, 2.5, 0.25, 1000.0, 0.0, "Auto")
 META_KEYS = ("Forge NAG", "Forge NAG Negative", "Forge NAG Phi", "Forge NAG Tau", "Forge NAG Alpha", "Forge NAG Sigma Start", "Forge NAG Sigma End", "Forge NAG Adapter Selection")
 
 STRINGS = {
@@ -64,12 +64,14 @@ def _paste_value(index: int, params):
         # Loading a non-NAG image must not leave a previously enabled NAG on.
         return value is True or str(value).lower() == "true"
     if index == 7:
-        from .registry import normalize_choice
+        from .registry import adapter_display_name
         from .config import NAGError
         try:
-            return normalize_choice(value)
+            # PNG metadata continues to store IDs; the visible Dropdown needs
+            # the corresponding label to work with Forge UI defaults.
+            return adapter_display_name(value)
         except NAGError:
-            return "auto"
+            return DEFAULTS[7]
     return value
 
 
@@ -89,9 +91,13 @@ def build_ui(gr, localization="None"):
         )
         enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
         from .registry import ADAPTER_CHOICES
+        # Forge UiLoadsave.radio_choices() compares saved Dropdown values
+        # against choice *labels* (the first item of each Gradio choice pair).
+        # Labels must be the actual Gradio values, not just display aliases.
+        # NAGConfig.parse() converts the selected label back to the stable ID.
         adapter = gr.Dropdown(
-            choices=list(ADAPTER_CHOICES),
-            value="auto", label=text("adapter")[0], info=text("adapter")[1],
+            choices=[label for label, _ in ADAPTER_CHOICES],
+            value=DEFAULTS[7], label=text("adapter")[0], info=text("adapter")[1],
             elem_id=f"{PREFIX}_adapter", interactive=True,
         )
         negative = gr.Textbox(value="", label=text("negative")[0], info=text("negative")[1],

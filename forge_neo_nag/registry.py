@@ -55,6 +55,20 @@ def normalize_choice(value) -> str:
     return selected
 
 
+def adapter_display_name(value: str) -> str:
+    """Return the human-readable Dropdown value for an adapter ID or label.
+
+    Forge UiLoadsave validates stored Dropdown values against choice labels,
+    whereas scripts/API and NAG metadata use stable internal adapter IDs.
+    Do not alter ADAPTER_IDS or the serialized metadata contract.
+    """
+    selected = normalize_choice(value)
+    for label, adapter_id in ADAPTER_CHOICES:
+        if adapter_id == selected:
+            return label
+    raise NAGError(f"No display label registered for NAG adapter '{selected}'.")
+
+
 def choose_adapter(engine, requested="auto", preset=None) -> str:
     """Pure selection. Preset is informational, never a rejection criterion.
 
