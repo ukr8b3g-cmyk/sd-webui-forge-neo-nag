@@ -30,6 +30,36 @@
 モデル固有の実装はKlein、Z-Image、Ernie、Qwen-Imageの各文書を参照してください。
 [Qwen-Image実装と制限](docs/QWENIMAGE_IMPLEMENTATION.md)・[Qwen-Image CPU検証](docs/VALIDATION_QWENIMAGE.md)をご確認ください。
 
+### 対応・非対応モデル一覧（v0.5.1）
+
+**判定の意味**：「実装対象」は専用Adapterがあるモデル系列、「対応見込み」は同じNative Engine／Transformer／Attention構造なら動作する可能性がある派生モデルです。**個別チェックポイントの実GPU生成、画質、NAGの抑制効果、FP8・LoRA互換性まで検証済みという意味ではありません。** モデル名や手動Adapter選択だけで互換性は確定せず、構造が不一致ならNAGは停止します。
+
+| Adapter | 実装対象（系列） | 対応見込みのモデル・派生（個別GPU未検証） |
+|---|---|---|
+| **Krea2** | Krea-2-Raw、Krea-2-Turbo | 同一Krea2構造のファインチューニング・派生 |
+| **Anima** | Anima Base v1.0、Anima Aesthetic v1.0／v1.1、Anima Turbo v1.0／v1.1 | Anima Preview系など同一構造の派生 |
+| **SDXL / Illustrious** | Stable Diffusion XL 1.0、Illustrious XL v1.x／v2.x | NoobAI-XL、Animagine XL 3.1／4.0、Pony Diffusion V6 XL、WAI-Illustrious、Juggernaut XL、RealVisXL、その他通常SDXL互換モデル |
+| **Klein / Flux.2** | FLUX.2-klein-4B、FLUX.2-klein-9B | FLUX.2-klein-base-4B／base-9B、同一構造の派生 |
+| **Z-Image Turbo (ZIT)** | Z-Image-Turbo | Z-Image（非蒸留Base）、同一構造の派生 |
+| **Ernie Image** | ERNIE-Image（8B） | 同じ`ErnieImage`構造の派生 |
+| **Qwen-Image (2512 / base)** | 初代Qwen-Image、Qwen-Image-2512 | 同じ`QwenImage`構造のtxt2img派生（参照画像なし） |
+
+**非対応モデル・構造（v0.5.1）**
+
+| モデル・系列 | 理由・状態 |
+|---|---|
+| **Qwen-Image-2.1** | 別エンジン`QwenImage21`／別Transformer。Adapterなし |
+| **Qwen-Image-Edit-2511** | 画像参照・編集、`zero_cond_t`経路は未対応。**実装案は保留中** |
+| **FLUX.1-dev／FLUX.1-schnell** | FLUX.2 Kleinとは異なる構造 |
+| **FLUX.2-dev** | Klein系とは異なる構造 |
+| **Stable Diffusion 1.5／2.x** | SDXL Adapterでは非対応 |
+| **Stable Diffusion 3／3.5** | Adapter未実装 |
+| **SDXL Refiner専用／Inpaint専用／Rectified-Flow SDXL** | 現行SDXL Adapterの対応範囲外 |
+| **Z-Image-Edit／編集用Z-Image系** | 画像編集・参照入力経路は未実装 |
+| **Nunchaku版Z-Image** | Nativeモデル型・Attention構造が異なるため非対応 |
+
+**利用条件**：Forge Neoで適合するNativeエンジンとして読み込める**txt2img（参照画像なし）**に限ります。img2img、Hires fix、Reference／Edit、Refiner切替、ControlNet、CFG++、動画、Tiling、Token merging、競合するAttention／Guidanceパッチ、未対応のコンパイル済みモデルは対象外です。NAGはCFG・Sampler・Scheduler・Presetを変更しません。実GPU確認は[GPU確認手順](docs/GPU_CHECKLIST.md)を参照してください。
+
 ### 何ができるか
 
 CFGを変更せずに、読み込み中の対応モデルのAttention内部へ独立したNAG Negative条件を追加します。
@@ -151,6 +181,36 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 
 The following instructions describe all seven adapters; model-specific details are documented separately. The common contract is
 [Multi-adapter implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md), with model-specific details in the Klein, Z-Image and Ernie implementation documents under `docs/`.
+
+### Supported and unsupported models (v0.5.1)
+
+**Interpretation:** An “implemented family” has a dedicated Adapter. “Potential candidates” are same-family variants that *may* work only if Forge Neo loads a compatible native Engine, Transformer and Attention layout. **This is not per-checkpoint GPU, image-quality, NAG effectiveness, FP8 or LoRA validation.** Checkpoint names and manual selection do not bypass structural checks; incompatible models fail closed.
+
+| Adapter | Implemented model family | Potential candidates (individual GPU validation pending) |
+|---|---|---|
+| **Krea2** | Krea-2-Raw; Krea-2-Turbo | Fine-tunes retaining the native Krea2 layout |
+| **Anima** | Anima Base v1.0; Anima Aesthetic v1.0/v1.1; Anima Turbo v1.0/v1.1 | Anima Preview and other same-layout variants |
+| **SDXL / Illustrious** | Stable Diffusion XL 1.0; Illustrious XL v1.x/v2.x | NoobAI-XL; Animagine XL 3.1/4.0; Pony Diffusion V6 XL; WAI-Illustrious; Juggernaut XL; RealVisXL; other standard SDXL models |
+| **Klein / Flux.2** | FLUX.2-klein-4B; FLUX.2-klein-9B | FLUX.2-klein-base-4B/base-9B; compatible variants |
+| **Z-Image Turbo (ZIT)** | Z-Image-Turbo | Z-Image (undistilled base); compatible variants |
+| **Ernie Image** | ERNIE-Image (8B) | Variants retaining the native `ErnieImage` layout |
+| **Qwen-Image (2512 / base)** | Original Qwen-Image; Qwen-Image-2512 | Same-layout Qwen-Image txt2img variants without references |
+
+**Unsupported models and architectures in v0.5.1**
+
+| Model/family | Reason/status |
+|---|---|
+| **Qwen-Image-2.1** | Separate `QwenImage21` engine and Transformer; no Adapter |
+| **Qwen-Image-Edit-2511** | Reference/edit and `zero_cond_t` path unsupported; **development on hold** |
+| **FLUX.1-dev / FLUX.1-schnell** | Not the FLUX.2 Klein architecture |
+| **FLUX.2-dev** | Not the Klein architecture |
+| **Stable Diffusion 1.5 / 2.x** | Not supported by the SDXL Adapter |
+| **Stable Diffusion 3 / 3.5** | No Adapter |
+| **SDXL Refiner / inpainting / rectified-flow SDXL** | Outside the supported SDXL model/layout contract |
+| **Z-Image-Edit / image-editing Z-Image variants** | Reference/edit pipeline unsupported |
+| **Nunchaku Z-Image** | Different native model and Attention layout |
+
+**Common requirements:** Native Forge-compatible **txt2img without references**. No img2img, Hires fix, Reference/Edit, refiner switches, ControlNet, CFG++, video, tiling, token merging, conflicting Attention/Guidance patches or unsupported compiled models. User CFG, sampler, scheduler and preset remain unchanged. See the [GPU checklist](docs/GPU_CHECKLIST.md).
 
 ### Purpose
 
