@@ -70,10 +70,16 @@ def test_png_metadata_roundtrip(tmp_path):
 
 
 def test_extension_loads_without_importing_backend(monkeypatch):
-    scripts_mod=SimpleNamespace(Script=type('ScriptBase',(),{}),AlwaysVisible=object())
+    class ScriptBase:
+        def on_after_component(self, callback, *, elem_id):
+            self.on_after_component_elem_id = [(elem_id, callback)]
+
+    scripts_mod=SimpleNamespace(Script=ScriptBase,AlwaysVisible=object())
     modules=ModuleType('modules')
     modules.scripts=scripts_mod
     modules.shared=SimpleNamespace(opts=SimpleNamespace(localization='None'))
+    modules.script_callbacks=SimpleNamespace(on_ui_settings=lambda fn: None,
+                                            on_after_component=lambda fn: None)
     monkeypatch.setitem(sys.modules,'modules',modules)
     path=Path(__file__).resolve().parents[1]/'scripts'/'forge_neo_nag.py'
     spec=importlib.util.spec_from_file_location('_nag_ui_entry_test',path)
@@ -83,6 +89,10 @@ def test_extension_loads_without_importing_backend(monkeypatch):
     assert extension.title()=='Forge Neo NAG'
     assert extension.show(False) is scripts_mod.AlwaysVisible
     assert extension.show(True) is False
+    assert extension.create_group is False
+    assert extension.on_after_component_elem_id == [
+        ("txt2img_neg_prompt_row", extension._after_negative_prompt)
+    ]
 
 
 @pytest.mark.parametrize("locale", ["None","ja_JP"])

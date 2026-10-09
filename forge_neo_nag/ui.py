@@ -58,7 +58,9 @@ def tooltip_metadata(lang: str) -> str:
     return '<div data-forge-nag-help="' + html.escape(json.dumps(data, ensure_ascii=False), quote=True) + '" hidden></div>'
 
 
-def _paste_value(index: int, params):
+def _paste_value(index: int, params, *, settings_defaults=False):
+    if settings_defaults and index in (5, 6) and META_KEYS[index] not in params:
+        return None  # Follow Settings when this image has no explicit Sigma.
     value = params.get(META_KEYS[index], DEFAULTS[index])
     if index == 0:
         # Loading a non-NAG image must not leave a previously enabled NAG on.
@@ -80,50 +82,41 @@ def sdxl_test_values():
     return 2.0, 2.5, 0.25, 1000.0, 0.0
 
 
-def build_ui(gr, localization="None"):
+def build_ui(gr, localization="None", *, settings_defaults=False):
     lang = language(localization)
     text = lambda field: STRINGS[field][lang]
     with gr.Accordion("Forge Neo NAG", open=False, elem_id=f"{PREFIX}_txt2img"):
-        gr.Markdown(
-            "**Krea2 / Anima / SDXL（Illustrious）/ Klein / Z-Image Turbo / Ernie Image / Qwen-Image (2512)・txt2img**。CFGとPresetはForge標準に任せます。Reference・Edit・Hires fixは非対応です。"
-            if lang == "ja" else
-            "**Krea2 / Anima / SDXL (Illustrious) / Klein / Z-Image Turbo / Ernie Image / Qwen-Image (2512) — txt2img**. CFG and presets remain managed by Forge. Reference, Edit and Hires fix are not supported."
-        )
-        enabled = gr.Checkbox(value=False, label=text("enabled")[0], info=text("enabled")[1], elem_id=f"{PREFIX}_enabled")
-        from .registry import ADAPTER_CHOICES
-        # Forge UiLoadsave.radio_choices() compares saved Dropdown values
-        # against choice *labels* (the first item of each Gradio choice pair).
-        # Labels must be the actual Gradio values, not just display aliases.
-        # NAGConfig.parse() converts the selected label back to the stable ID.
-        adapter = gr.Dropdown(
-            choices=[label for label, _ in ADAPTER_CHOICES],
-            value=DEFAULTS[7], label=text("adapter")[0], info=text("adapter")[1],
-            elem_id=f"{PREFIX}_adapter", interactive=True,
-        )
-        negative = gr.Textbox(value="", label=text("negative")[0], info=text("negative")[1],
-                              placeholder="big wings", lines=3, elem_id=f"{PREFIX}_negative")
-        with gr.Row():
+        negative = gr.Textbox(value="", label=text("negative")[0],
+                              placeholder="big wings", lines=2, max_lines=6, elem_id=f"{PREFIX}_negative")
+        with gr.Row(variant="compact"):
+            enabled = gr.Checkbox(value=False, label=text("enabled")[0],
+                                  elem_id=f"{PREFIX}_enabled", scale=0, min_width=140)
+            from .registry import ADAPTER_CHOICES
+            # Keep display labels as actual values for Forge UiLoadsave.
+            adapter = gr.Dropdown(
+                choices=[label for label, _ in ADAPTER_CHOICES],
+                value=DEFAULTS[7], label=text("adapter")[0],
+                elem_id=f"{PREFIX}_adapter", interactive=True, scale=0, min_width=200,
+            )
             phi = gr.Slider(minimum=0, maximum=20, step=0.1, value=4.0,
-                            label=text("phi")[0], info=text("phi")[1], elem_id=f"{PREFIX}_phi")
+                            label=text("phi")[0], elem_id=f"{PREFIX}_phi", scale=1, min_width=180)
             tau = gr.Slider(minimum=0.01, maximum=20, step=0.01, value=2.5,
-                            label=text("tau")[0], info=text("tau")[1], elem_id=f"{PREFIX}_tau")
+                            label=text("tau")[0], elem_id=f"{PREFIX}_tau", scale=1, min_width=180)
             alpha = gr.Slider(minimum=0, maximum=1, step=0.01, value=0.25,
-                              label=text("alpha")[0], info=text("alpha")[1], elem_id=f"{PREFIX}_alpha")
-        with gr.Accordion("詳細設定 / Advanced", open=False):
-            start = gr.Number(value=1000.0, precision=None,
-                              label=text("sigma_start")[0], info=text("sigma_start")[1], elem_id=f"{PREFIX}_sigma_start")
-            end = gr.Number(value=0.0, precision=None,
-                            label=text("sigma_end")[0], info=text("sigma_end")[1], elem_id=f"{PREFIX}_sigma_end")
-        apply_sdxl = gr.Button("SDXL試験設定を適用" if lang == "ja" else "Apply SDXL test settings",
-                               elem_id=f"{PREFIX}_sdxl_test")
-        apply_sdxl.click(fn=sdxl_test_values, inputs=[], outputs=[phi, tau, alpha, start, end],
-                         queue=False, show_progress=False)
+                              label=text("alpha")[0], elem_id=f"{PREFIX}_alpha", scale=1, min_width=180)
+        # Preserve the eight API arguments and per-image PNG Info bindings.
+        start = gr.Number(value=DEFAULTS[5], precision=None, visible=False,
+                          label=text("sigma_start")[0], elem_id=f"{PREFIX}_sigma_start")
+        end = gr.Number(value=DEFAULTS[6], precision=None, visible=False,
+                        label=text("sigma_end")[0], elem_id=f"{PREFIX}_sigma_end")
+        start.do_not_save_to_config = end.do_not_save_to_config = True
         gr.HTML(tooltip_metadata(lang))
     controls = [enabled, negative, phi, tau, alpha, start, end, adapter]
-    fields = [(control, functools_partial(index)) for index, control in enumerate(controls)]
+    fields = [(control, functools_partial(index, settings_defaults=settings_defaults))
+              for index, control in enumerate(controls)]
     return controls, fields
 
 
-def functools_partial(index):
+def functools_partial(index, *, settings_defaults=False):
     from functools import partial
-    return partial(_paste_value, index)
+    return partial(_paste_value, index, settings_defaults=settings_defaults)

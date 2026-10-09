@@ -17,6 +17,13 @@ from .base import (CrossAttentionAdapter, check_unmodified, context_tensor,
 MAX_TOKENS = 2048
 
 
+def _valid_context(context, batch, width):
+    # Forge prompt batching can retain the encoder's singleton batch axis.
+    return (isinstance(context, torch.Tensor) and context.ndim in (3, 4)
+            and (context.ndim == 3 or context.shape[1] == 1)
+            and context.shape[0] == batch and context.shape[-1] == width)
+
+
 def validate_model(model, layout_types):
     block_type, attention_type = layout_types
     for attr in ("blocks", "patch_spatial", "patch_temporal", "in_channels", "out_channels",
@@ -78,7 +85,7 @@ class _CrossAttention:
     def __call__(self, x, context=None, rope_emb=None, transformer_options=None):
         owner, attn = self.owner, self.original
         options = transformer_options or {}
-        if context is None or context.ndim != 3 or context.shape[0] != x.shape[0]:
+        if not _valid_context(context, x.shape[0], owner.context_width):
             raise NAGError("Unexpected Anima positive context batch.")
         q, k, v = attn.compute_qkv(x, context, rope_emb=rope_emb)
         sq = owner.selected(q)
@@ -128,7 +135,7 @@ class AnimaAdapter(CrossAttentionAdapter):
             raise NAGError("Anima NAG does not accept reference, control or extra model conditions.")
         if x.ndim != 5 or x.shape[2] != 1 or x.shape[1] != self.model.in_channels:
             raise NAGError("Anima NAG expects native single-frame five-dimensional latents.")
-        if context.ndim != 3 or context.shape[0] != x.shape[0] or context.shape[-1] != self.context_width:
+        if not _valid_context(context, x.shape[0], self.context_width):
             raise NAGError("Unexpected Anima conditioning shape.")
         return self.view(x, timesteps, context, transformer_options=transformer_options or {})
 

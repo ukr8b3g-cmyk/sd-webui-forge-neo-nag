@@ -113,11 +113,10 @@ def test_ui_manual_selector_button_does_not_write_forge_controls():
     config=demo.get_config_file()
     ids={c["id"]:c["props"].get("elem_id") for c in config["components"]}
     dependencies=[d for d in config["dependencies"] if d.get("outputs")]
-    # Only the explicit SDXL sample-settings button has a write callback.
-    assert len(dependencies)==1
-    assert [ids[i] for i in dependencies[0]["outputs"]]==[
-        "forge_neo_nag_phi","forge_neo_nag_tau","forge_neo_nag_alpha",
-        "forge_neo_nag_sigma_start","forge_neo_nag_sigma_end"]
+    # The trial button is in Settings; generation controls have no write callback.
+    assert not dependencies
+    assert "forge_neo_nag_sdxl_test" not in ids.values()
+    assert controls[5].visible is False and controls[6].visible is False
 
 
 @pytest.mark.parametrize("locale", ["None", "ja_JP"])
