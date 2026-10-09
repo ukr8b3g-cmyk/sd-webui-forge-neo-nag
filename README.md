@@ -7,19 +7,20 @@
 
 [日本語](#日本語) · [English](#english) · [Download / ダウンロード](https://github.com/ukr8b3g-cmyk/sd-webui-forge-neo-nag/releases) · [Validation / 検証](docs/VALIDATION_MULTI_ADAPTER.md) · [Implementation](docs/MULTI_ADAPTER_IMPLEMENTATION.md)
 
-> **v0.5.0 — adds native Qwen-Image (including 2512) txt2img NAG. Qwen-Image-2.1 and Edit-2511 references remain excluded.**
+> **v0.5.1 — fixes manual Adapter UI-default saving and reloading in English and Japanese; model features remain unchanged.**
 > ZIT includes the native `adaln_input` refiner-time contract fix. Pretrained-model GPU validation for ZIT/Ernie is still pending.
 > This is a Forge Neo WebUI **extension**, not a ComfyUI custom node.
 > NAG does not rewrite Forge presets, CFG, sampler, scheduler, steps, resolution, Clip skip, LoRA, or the standard Negative Prompt.
 >
-> **Current v0.5.0 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)`. Preset and CFG remain user-controlled. Native Edit-2511 reference generation is not enabled.
+> **Current v0.5.1 behavior:** Adapter = `Auto / Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)`. Preset and CFG remain user-controlled. Native Edit-2511 reference generation is not enabled.
 
 ## 日本語
 
-### v0.5.0 の要点
+### v0.5.1 の要点
 
 - 対応アダプター: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)**。
 - アダプターは`Auto`または手動選択。Presetと一致しない場合もユーザーが自分で修正できます。
+- **v0.5.1修正**：手動Adapter選択をForgeのUI既定値として保存した後、再起動するとAutoに戻る問題を修正しました。UI既定値は表示名で保存し、API・生成メタデータは従来の内部IDを維持します。
 - **CFG=1固定は撤廃**。通常CFGと標準Negative枝はForge Neo本来の処理を維持します。
 - Preset、CFG、sampler、scheduler、steps、解像度、Clip skip、LoRAをNAG側から自動変更しません。
 - `txt2img / 参照画像なし`が現在の共通対応範囲です。Hires fix、img2img、Refiner、ControlNet、CFG++などは対象外です。
@@ -74,6 +75,8 @@ ComfyUIの`custom_nodes`には入れません。Forge本体のファイルを上
 1. txt2imgで対応モデルを読み込み、通常のPositive Promptと自分のCFG値を設定します。
 2. `Forge Neo NAG`を開き、`Adapter=Auto`または互換性のあるモデルを手動選択します。
 3. `Enable NAG / NAGを有効化`をONにして、**NAG Negative Prompt**へ抑制対象を入力します。まずは`big wings`や`sunglasses`などで比較してください。
+
+**Adapter既定値の保存**：v0.5.1では、ForgeのUI既定値管理で選択したAdapterを保存・再読み込みできます。以前のバージョンで内部ID（例：`qwenimage`）をUI設定ファイルへ保存していた場合は、アップデート後にAdapterを選択し直して既定値を再保存してください。NAGは既存のUI設定ファイルを自動変更しません。PNG Info・APIの内部IDは引き続き利用できます。
 
 サンプラー・ステップ・解像度・CFG・モデル・LoRAは、通常生成できる設定を維持してください。
 NAG用の追加Text Encoderは不要です。各モデルの既存Text Encoderを再利用します。
@@ -137,10 +140,10 @@ NAGをOFFにすると通常経路へ戻ります。問題報告にはForgeのコ
 
 ## English
 
-### v0.5.0 summary
+### v0.5.1 summary
 
 - Adapters: **Krea2 / Anima / SDXL (Illustrious) / Klein (Flux.2) / Z-Image Turbo (ZIT) / Ernie Image / Qwen-Image (2512 / base)**.
-- Adapter selection can be `Auto` or manual.
+- Adapter selection can be `Auto` or manual. **v0.5.1 fixes manual Adapter persistence through Forge UI defaults in English and Japanese** while leaving API and image metadata IDs unchanged.
 - **CFG=1 is no longer required**; Forge's native standard Negative branch and CFG composition are preserved.
 - NAG does not change presets, CFG, sampler, scheduler, steps, resolution, Clip skip or LoRA.
 - Current common scope: `txt2img`, no reference images. Hires fix, img2img, Refiner, ControlNet and CFG++ remain unsupported.
@@ -167,7 +170,7 @@ a particular setup as validated.
 
 ### Installation and use
 
-Start with Forge Neo already able to generate images with the selected supported model. Extract this
+Start with Forge Neo already able to generate images with the selected supported model. Adapter selections saved in Forge UI defaults now persist after restart. If an older UI settings file stored internal IDs (e.g. `qwenimage`) instead of display labels, select the adapter again and re-save UI defaults once after upgrading. The extension does not rewrite that file; PNG Info and API internal IDs remain compatible. Extract this
 extension into `extensions/sd-webui-forge-neo-nag/`, or clone the published repository
 there using the command above. Restart the WebUI process. Do not place it in
 ComfyUI's `custom_nodes`, and do not overwrite Forge's source files.

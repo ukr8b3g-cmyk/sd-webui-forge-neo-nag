@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — 2026-10-09
+
+- Fix manual Adapter selection resetting to Auto after saving/reloading Forge Neo UI defaults: Dropdown choice values now match Forge UiLoadsave's display-label validation.
+- Keep stable adapter IDs for NAG configuration, 7-/8-argument API calls and PNG Info metadata; convert IDs/legacy labels to visible Dropdown choices during PNG Info restore.
+- Add real Gradio/Forge radio-choice contract regression tests for all seven manual adapters in Japanese and English, plus API, metadata and invalid-choice fallback checks.
+- Previously saved UI-default internal IDs may require re-selection and saving once; user settings files are not automatically modified.
+- No changes to Forge Neo core, model adapters, CFG or sampling math. Qwen-Image-Edit-2511 remains on hold.
+
 ## 0.5.0 — 2026-10-08
 
 - Add Qwen-Image joint-attention NAG adapter for the native Forge `QwenImage` model family, including Qwen-Image-2512 txt2img without references.
