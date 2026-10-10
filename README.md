@@ -132,6 +132,28 @@ Sigmaはステップ数や進捗率ではなく、Forgeがモデル時刻へ変�
 NAG成功として保存せずエラーにします。空欄・Phi=0・Alpha=0は通常経路へバイパスし、
 有効化されていた場合はメタデータに`bypassed`と記録します。
 
+### モデル別の設定値と推奨・参考値の確認状況
+
+**調査基準：2026-10-10。** 「参考値あり」は論文の既定値、参考実装の初期値、または条件付きの公開例が確認できたものです。**この拡張での実モデルGPU生成・画質・抑制効果の最適値を検証済み、という意味ではありません。** 「未確認」のモデルには、比較を始めるための共通初期値を示します。
+
+| モデル | 推奨・参考値の確認状況 | Phi | Tau | Alpha | 条件・根拠 |
+|---|---|---:|---:|---:|---|
+| **Krea2** | 参考実装の初期値あり | 4 | 2.5 | 0.25 | [参考実装](https://github.com/iljung1106/ComfyUI-Krea2-NAG/blob/0afb38dfc4ae4040d621ac5a46e1761b83fa2a43/README.md)の初期値。公開例はKrea2 Raw＋Turbo LoRA。Forgeでの画質の最適値は未検証。 |
+| **Anima** | 条件付き公開例あり | 2 | 2.5 | 0.5 | [公開例](https://github.com/hybskgks28275/ComfyUI-Anima-NAG/blob/15904013437882197b8ef7dd69891e79105bf0fb/README.md)：Turbo LoRA、CFG=1、8〜12ステップ、NAG適用は前半50%。通常のAnima全体へ一律に推奨する値ではありません。 |
+| **SDXL / Illustrious** | SDXLの論文値あり／Illustrious固有は未確認 | 2 | 2.5 | 0.5 | [NAG論文 Table 5](https://arxiv.org/html/2505.21179v3)のSDXL既定値。Illustriousや各派生モデルでの最適値は未確認。 |
+| **FLUX.2 Klein** | Distilled 4Bの条件付き公開例あり | 5 | 2 | 0.25 | [公開ワークフロー](https://github.com/BigStationW/ComfyUi-TextEncodeEditAdvanced/blob/93a508d09918c2c624a267bc9b9f33535ca72ee6/workflow/Flux2_Klein_4b/workflow_Flux2_Klein_4b_clip_text_encode_NAG.json)：Distilled 4B、4ステップ、終了Sigma=0.75。Scale=6をこの拡張のPhi=5へ換算。Base・9Bへの推奨値は未確認。 |
+| **Z-Image Turbo** | 未確認：共通初期値で比較開始 | 4 | 2.5 | 0.25 | 今回の調査ではモデル固有の有効なNAG推奨値を確認できていません。比較用の開始値です。 |
+| **ERNIE Image** | 未確認：共通初期値で比較開始 | 4 | 2.5 | 0.25 | モデル固有のNAG推奨値は未確認。共通初期値から比較を始められますが、画質・抑制効果の適正値は未検証です。 |
+| **Qwen-Image / 2512** | 未確認：共通初期値で比較開始 | 4 | 2.5 | 0.25 | 2512専用を含むモデル固有のNAG推奨値は未確認。共通初期値から比較を始められますが、画質・抑制効果の適正値は未検証です。 |
+
+表はPhi・Tau・Alphaの参考値です。共通のSigma初期値は `Start=1000 / End=0` ですが、**Animaの「前半50%」やKleinの終了Sigma=0.75とは別条件**です。Sigmaはステップ進捗率ではないため、`Sigma=0.5` を「前半50%」と扱わないでください。係数だけを合わせても公開例のLoRA・CFG・ステップ数・適用区間は再現されません。
+
+この拡張の式は `P + Phi * (P - N)` です。Kleinの公開例の実装は `Scale * P - (Scale - 1) * N` なので、`Phi = Scale - 1` と換算しています（[元の計算式](https://github.com/BigStationW/ComfyUI-NAG-Extended/blob/d31ebdac5555847e387dac2ae50d78129401ece5/utils.py)）。他の実装へ同じ換算を一律に適用したり、係数の一致を実装全体の同等性と扱ったりしないでください。
+
+**Animaで抑制が弱い場合の試験案**：`Phi=4 / Tau=2.5 / Alpha=0.5`。これは上のTurbo公開例とは別の調整案で、実モデルでの最適値・画質は未検証です。ERNIE・Qwen-Imageなどでも効果が弱い場合は、Phi・Tauを固定してAlphaだけを少しずつ上げ、同じseedでNAG OFFとの違いと画質を比較してください。
+
+表の値は拡張の共通初期値やAPI既定値を変更しません。既存の **Apply SDXL test settings** ボタンは `2 / 2.5 / 0.25` の試験設定であり、上のSDXL論文値 `2 / 2.5 / 0.5` とは区別してください。
+
 ### V1の範囲
 
 共通初期対応は**Krea2 / Anima / SDXL / Klein / Z-Image / Ernie / Qwen-Imageのtxt2img（参照画像なし）**です。CFGはユーザーが設定し、通常CFGの合成はForge側で行います。
@@ -263,6 +285,28 @@ Start must be at least End. Sigma is not a step count or percentage. Out-of-rang
 calls use the original model. A run with zero active NAG calls is rejected rather
 than saved as an NAG result. Empty text, Phi=0 or Alpha=0 bypasses the normal NAG
 path; enabled-but-bypassed requests are explicitly recorded as `bypassed`.
+
+### Model settings and recommendation/reference status
+
+**Sources checked: 2026-10-10.** An available reference means a paper default, a reference implementation default, or a published example with specific conditions. **It does not establish a visually optimal setting or validated suppression with pretrained models in this Forge extension.** Models without a confirmed recommendation use the shared defaults as comparison starting points.
+
+| Model | Recommendation/reference status | Phi | Tau | Alpha | Conditions and evidence |
+|---|---|---:|---:|---:|---|
+| **Krea2** | Reference implementation default available | 4 | 2.5 | 0.25 | [Reference implementation](https://github.com/iljung1106/ComfyUI-Krea2-NAG/blob/0afb38dfc4ae4040d621ac5a46e1761b83fa2a43/README.md) default. Published example: Krea2 Raw + Turbo LoRA. A Forge visual optimum is unverified. |
+| **Anima** | Conditional community example available | 2 | 2.5 | 0.5 | [Published example](https://github.com/hybskgks28275/ComfyUI-Anima-NAG/blob/15904013437882197b8ef7dd69891e79105bf0fb/README.md): Turbo LoRA, CFG=1, 8–12 steps, NAG during the first 50% of steps. Not a universal recommendation for ordinary Anima setups. |
+| **SDXL / Illustrious** | SDXL paper default available; Illustrious-specific optimum unconfirmed | 2 | 2.5 | 0.5 | SDXL default in [NAG Table 5](https://arxiv.org/html/2505.21179v3). No verified optimum for Illustrious or individual derivatives. |
+| **FLUX.2 Klein** | Conditional distilled 4B example available | 5 | 2 | 0.25 | [Published workflow](https://github.com/BigStationW/ComfyUi-TextEncodeEditAdvanced/blob/93a508d09918c2c624a267bc9b9f33535ca72ee6/workflow/Flux2_Klein_4b/workflow_Flux2_Klein_4b_clip_text_encode_NAG.json): distilled 4B, 4 steps, Sigma End=0.75. Source Scale=6 converts to Forge Phi=5. Recommendations for Base and 9B remain unconfirmed. |
+| **Z-Image Turbo** | Unconfirmed; shared comparison defaults | 4 | 2.5 | 0.25 | No verified active model-specific NAG recommendation was found in the reviewed sources. These are comparison starting values. |
+| **ERNIE Image** | Unconfirmed; shared comparison defaults | 4 | 2.5 | 0.25 | No confirmed model-specific NAG recommendation. Start comparisons with the shared defaults; suitable visual quality and suppression settings remain unverified. |
+| **Qwen-Image / 2512** | Unconfirmed; shared comparison defaults | 4 | 2.5 | 0.25 | No confirmed model-specific NAG recommendation, including a 2512-specific optimum. Start comparisons with shared defaults; visual quality and suppression remain unverified. |
+
+This table covers Phi, Tau and Alpha. Shared Sigma defaults are `Start=1000 / End=0`, which **do not reproduce Anima's first-50% interval or Klein's Sigma End=0.75**. Sigma is not step progress: `Sigma=0.5` does not mean the first 50% of steps. Matching coefficients alone does not reproduce an example's LoRA, CFG, steps or application interval.
+
+This extension uses `P + Phi * (P - N)`. The implementation used by the Klein example uses `Scale * P - (Scale - 1) * N`, hence `Phi = Scale - 1` ([source formula](https://github.com/BigStationW/ComfyUI-NAG-Extended/blob/d31ebdac5555847e387dac2ae50d78129401ece5/utils.py)). Do not apply this conversion to every implementation or treat matching coefficients as whole-implementation equivalence.
+
+**Trial for weak Anima suppression:** `Phi=4 / Tau=2.5 / Alpha=0.5`. This is a separate adjustment proposal from the Turbo example, without pretrained-model visual validation. For weak suppression in ERNIE, Qwen-Image or other models, a trial is to keep Phi and Tau fixed, increase Alpha gradually, and compare NAG OFF at the same seed for suppression and visual changes.
+
+These references do not change the extension's shared or API defaults. The existing **Apply SDXL test settings** button uses the experimental `2 / 2.5 / 0.25`, distinct from the SDXL paper's `2 / 2.5 / 0.5`.
 
 ### V1 support and limits
 
